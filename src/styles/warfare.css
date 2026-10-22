@@ -1,0 +1,157 @@
+/* Shared force composition and floating battle windows; artwork stays in assets/battle. */
+.army-composer { margin: 14px 0; }
+.composer-heading { display:flex; align-items:center; gap:16px; justify-content:space-between; }
+.composer-heading p { max-width:650px; color:#5b624d; font-size:12px; line-height:1.65; }
+.composer-heading .btn { flex-shrink:0; }
+.composer-officers { max-height:260px; overflow:auto; border:1px solid #ad9866; }
+.composer-officers th { position:sticky; top:0; z-index:1; background:#ddd0ac; }
+.composer-officers td small { display:block; color:#7b755d; font-size:10px; }
+.composer-officers select { min-width:110px; padding:6px; }
+.formation-cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:12px; }
+.formation-card { border:3px double #ad9461; background:#e7dbb9; padding:12px; }
+.formation-card header { display:flex; justify-content:space-between; gap:8px; color:#314c47; }
+.formation-card header span { font-size:11px; }
+.formation-card p { font-size:12px; color:#6a624c; margin:8px 0; }
+.formation-stats { font-size:12px; margin-bottom:10px; color:#835035; }
+.formation-card .field label { font-size:11px; }
+.formation-card input, .formation-card select { min-width:0; width:100%; }
+.army-composer [data-formation-summary] small { display:block; }
+.army-composer [data-formation-summary] .economy-warning { display:block; }
+.battle-tile.stronghold { box-shadow:inset 0 0 0 3px #cbbd6d; }
+.stronghold-label { position:absolute; inset:auto 0 2px; z-index:4; font-size:9px; line-height:1.3; background:#203e3bdf; color:#fff0bb; letter-spacing:.05em; pointer-events:none; }
+.unit-commanders { font-size:10px; line-height:1.5; color:#d1c59f; max-height:48px; overflow:auto; }
+.battle-action[data-mode="return"] { grid-column:1/-1; }
+.battle-action[hidden] { display:none; }
+.terrain-swatch.fog { background:#203038; }
+.terrain-swatch.zoc { background:repeating-linear-gradient(45deg,#8e4d36 0 2px,#d8bc8b 2px 5px); }
+.field-rule-hint { margin:0; padding:0 11px 10px; font-size:10px; line-height:1.6; color:#69634d; }
+.field-log-window { position:absolute; left:320px; right:294px; bottom:18px; z-index:8; border:3px double #a18c5a; padding:7px 10px; background:var(--surface-silk); color:#e3d1a4; box-shadow:var(--frame-shadow); }
+.field-log-window summary { font:12px var(--serif); cursor:pointer; }
+.field-log-window .battle-log { max-height:60px; margin:6px 0 0; padding:0; background:none; border:0; color:#d8ccab; font-size:10px; overflow:auto; }
+.field-log-window .battle-log p { margin:4px 0; }
+.battle-screen.hud-collapsed .field-log-window { visibility:hidden; }
+.fog-intelligence { font-size:10px; line-height:1.7; }
+.battle-tile.fog-unseen::after,.battle-tile.fog-explored::after { content:""; position:absolute; inset:0; z-index:1; background:#15282b66; pointer-events:none; }
+.battle-tile.enemy-zoc::before { content:""; position:absolute; inset:3px; z-index:2; border:1px dashed #f2b58b9e; background:repeating-linear-gradient(135deg,#8e40272b 0 3px,transparent 3px 8px); pointer-events:none; }
+.battle-tile.fog-unseen.reachable { box-shadow:inset 0 0 0 2px #c8b873; }
+.unit-piece.is-ambushing .unit-standard { border-color:#b8d09f; background:#355348; }
+.unit-piece.is-ambushing .unit-readout { border-bottom-color:#afc096; }
+.unit-piece.is-concealing { animation:unitConceal .35s ease-out; }
+.unit-piece.is-ambush-striking { animation:ambushStrike .42s ease-out; }
+.ambush-damage { position:absolute; z-index:50; top:-12px; left:50%; transform:translateX(-50%); padding:4px 8px; border:1px solid #edd3a0; background:#803624f0; color:#fff2c8; white-space:nowrap; font:700 13px var(--serif); pointer-events:none; animation:ambushDamage .42s ease-out; }
+@keyframes unitConceal { to { opacity:.25; filter:blur(1px); } }
+@keyframes ambushStrike { 25% { transform:translate(-50%,-65%) scale(1.3); filter:brightness(1.8); } 60% { transform:translate(-35%,-50%) scale(1.1); } }
+@keyframes ambushDamage { from { opacity:0; margin-top:12px; } to { opacity:1; margin-top:-5px; } }
+@media(prefers-reduced-motion:reduce) { .unit-piece.is-concealing,.unit-piece.is-ambush-striking,.ambush-damage { animation:none; } }
+/* Full-bleed battle grounds; all command surfaces float independently above them. */
+.battle-screen, .battle-screen.is-siege { height:calc(100dvh - 82px); min-height:560px; padding:0; overflow:hidden; isolation:isolate; }
+.battle-header { right:150px; gap:18px; }
+.battle-hud-toggle { position:absolute; z-index:20; right:20px; top:29px; min-height:44px; padding:8px 12px; color:#ecddb5; background:var(--surface-silk); border:3px double #bca471; box-shadow:var(--frame-shadow); }
+.battlefield-wrap { inset:0; height:100%; padding:0; container-type:size; }
+/* Fit the whole board with one scale. Content-box keeps its frame out of the
+   grid ratio; two 8px gutters plus two 2px borders reserve 20px on each axis. */
+.battlefield {
+ --field-space:20px;
+ position:absolute; inset:auto; left:50%; top:50%; transform:translate(-50%,-50%);
+ box-sizing:content-box; margin:0; padding:0; border-width:2px;
+ width:min(calc(100cqw - var(--field-space)),calc((100cqh - var(--field-space)) * var(--field-ratio)));
+ height:auto; aspect-ratio:var(--field-ratio);
+}
+.battle-order-panel { top:104px; left:20px; width:180px; max-height:calc(100% - 140px); }
+.unit-panel { top:104px; right:20px; width:254px; height:auto; max-height:calc(100% - 124px); display:flex; flex-direction:column; gap:6px; overflow-y:auto; }
+.day-banner { top:104px; left:50%; }
+.battle-tip { max-width:calc(100% - 580px); text-align:center; bottom:124px; }
+.unit-piece { width:62px; height:38px; top:50%; }
+.unit-standard { width:22px; height:25px; left:2px; }
+.unit-readout { left:23px; top:1px; padding:2px 3px; }
+.unit-readout strong { font-size:9px; }
+.unit-standard::after { height:36px; }
+.battle-screen.is-siege { background:#3b4b48 url('../assets/battle/siege-background.png') center 42%/cover no-repeat; }
+.battle-screen.is-siege::before { content:""; position:absolute; inset:0; z-index:0; pointer-events:none; background:linear-gradient(180deg,#10292e38,transparent 22%,transparent 65%,#172b2e50); }
+.siege-view { position:absolute; inset:0; pointer-events:none; z-index:2; }
+.siege-fortress,.siege-armies,.siege-orders { position:absolute; pointer-events:auto; }
+.siege-fortress { left:20px; top:104px; width:254px; max-height:calc(100% - 275px); overflow:auto; border:4px solid transparent; background:linear-gradient(#243e3f,#243e3f) padding-box,var(--frame-metal) border-box; box-shadow:var(--frame-shadow); }
+.siege-scene { padding:13px 15px 12px; color:#eddfbc; background:var(--surface-silk); }
+.siege-scene h2 { font:21px var(--serif); margin:7px 0; }
+.siege-scene p,.siege-scene small { font-size:11px; color:#d1c49d; line-height:1.7; margin:5px 0; }
+.siege-scene .kicker { color:#d1ad65; }
+.siege-armies { right:20px; top:104px; width:224px; display:grid; gap:12px; }
+.siege-army { background:var(--surface-paper); border:4px solid transparent; border-image:none; background-clip:padding-box; padding:12px 14px; outline:1px solid #b7a16c; box-shadow:var(--frame-shadow); }
+.siege-army h3 { margin:5px 0; font:26px var(--serif); color:#344f45; }
+.siege-army small { font-size:10px; color:#796e4e; }
+.siege-army p { font-size:11px; line-height:1.5; color:#4d5c46; margin:4px 0; }
+.siege-walls { background:var(--surface-paper); border-top:3px double #b49c65; padding:12px 15px; display:grid; gap:10px; }
+.siege-walls > p { font-size:12px; color:#665c46; line-height:1.6; }
+.siege-wall > div:first-child { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:#43533e; }
+.siege-wall.current strong { color:#9b4c33; }
+.siege-wall.breached { opacity:.45; }
+.siege-wall small { display:block; margin-top:3px; font-size:9px; color:#776f52; }
+.wall-track { height:10px; margin-top:5px; background:#c4b48f; box-shadow:inset 0 1px 3px #4d4a3355; }
+.wall-track i { display:block; height:100%; background:linear-gradient(90deg,#426454,#7f8a54); transition:width .45s ease; }
+.current .wall-track i { background:linear-gradient(90deg,#95553b,#bf974d); }
+.siege-rule-note { margin:0; padding:10px 14px; background:var(--surface-silk); border-top:1px solid #a18c5a; font-size:10px; line-height:1.8; color:#d6c79e; }
+.siege-rule-note summary,.siege-log-window summary { cursor:pointer; }
+.siege-rule-note p { margin:7px 0 0; }
+.siege-orders { bottom:20px; left:294px; right:264px; padding:14px; background:var(--surface-paper); border:4px double #b29c66; box-shadow:var(--frame-shadow); }
+.siege-orders h3 { margin:0 0 10px; font:19px var(--serif); color:#3c574b; }
+.siege-orders p { margin:8px 0 0; font-size:10px; line-height:1.6; color:#756747; }
+.siege-order-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.siege-order { text-align:left; padding:10px; border:1px solid #ae965e; color:#394e40; background:linear-gradient(135deg,#f0e5c7,#d9c69c); cursor:pointer; }
+.siege-order strong { display:block; font:18px var(--serif); margin-bottom:6px; }
+.siege-order small { font-size:10px; line-height:1.6; }
+.siege-order:hover:not(:disabled) { border-color:#974c33; background:#f1dfb7; box-shadow:inset 3px 0 #974c33; }
+.siege-order:disabled { opacity:.55; cursor:default; }
+.siege-log-window { position:absolute; z-index:4; bottom:20px; left:20px; width:254px; margin:0; background:var(--surface-silk); border:3px double #a18c5a; padding:10px 12px; color:#daccaa; box-shadow:var(--frame-shadow); }
+.siege-log-window summary { font:14px var(--serif); color:#e2c991; }
+.siege-log { max-height:106px; overflow:auto; margin-top:7px; font-size:10px; }
+.siege-log p { margin:5px 0; line-height:1.6; }
+.siege-view.is-hidden,.siege-log-window.is-hidden { display:none; }
+.battle-screen.hud-collapsed .battle-header,.battle-screen.hud-collapsed .battle-order-panel,.battle-screen.hud-collapsed .unit-panel,.battle-screen.hud-collapsed .day-banner,.battle-screen.hud-collapsed .battle-tip,.battle-screen.hud-collapsed .siege-view,.battle-screen.hud-collapsed .siege-log-window { visibility:hidden; }
+@media(min-width:1600px) {
+ .siege-fortress,.siege-log-window { width:290px; }
+ .siege-armies { width:260px; }
+ .siege-orders { left:calc(50% - 360px); right:auto; width:720px; bottom:28px; padding:18px; }
+ .siege-order { padding:15px; }
+ .siege-scene h2 { font-size:24px; }
+ .siege-army p { font-size:12px; }
+ .wall-track { height:14px; }
+}
+@media(max-width:1050px) {
+ .battle-screen,.battle-screen.is-siege { min-height:620px; }
+ .battle-header { left:12px; right:132px; gap:12px; }
+ .battle-hud-toggle { right:12px; font-size:11px; }
+ .battle-score { min-width:0; }
+ .battle-order-panel { left:12px; width:160px; }
+ .unit-panel { right:12px; width:230px; display:flex; }
+ .battle-tip { max-width:calc(100% - 440px); }
+ .field-log-window { left:280px; right:254px; }
+ .siege-fortress,.siege-log-window { left:12px; width:220px; }
+ .siege-armies { right:12px; width:200px; }
+ .siege-orders { left:248px; right:228px; padding:10px; }
+ .siege-order-grid { gap:6px; }
+ .siege-order { padding:8px; }
+ .siege-order small { font-size:9px; }
+}
+@media(max-width:700px) {
+ .formation-cards { grid-template-columns:1fr; }
+ .composer-officers th,.composer-officers td { padding:6px; font-size:11px; }
+ .battle-screen,.battle-screen.is-siege { min-height:780px; }
+ .battle-header { grid-template-columns:1fr auto; min-height:68px; }
+ .battle-header h2 { font-size:16px; }
+ .battle-score { display:none; }
+ .battle-clock { display:none; }
+ .battle-order-panel { width:130px; top:100px; max-height:260px; }
+ .unit-panel { left:auto; right:12px; top:100px; width:205px; max-height:450px; }
+ .battlefield { --field-space:16px; }
+ .day-banner { top:auto; bottom:205px; font-size:10px; }
+ .battle-tip { max-width:90%; bottom:155px; }
+ .field-log-window { left:12px; right:12px; bottom:12px; }
+ .siege-fortress { width:46%; max-height:385px; }
+ .siege-armies { width:44%; gap:8px; }
+ .siege-scene { padding:10px; }
+ .siege-scene h2 { font-size:18px; }
+ .siege-army { padding:9px; }
+ .siege-orders { left:12px; right:12px; bottom:64px; }
+ .siege-log-window { bottom:12px; width:calc(100% - 24px); }
+ .siege-log { max-height:70px; }
+}

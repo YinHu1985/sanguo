@@ -1,0 +1,11 @@
+Built-in image_gen generation prompt
+
+Use case: historical-scene
+Asset type: Full-bleed landscape background illustration for a locally running Three Kingdoms strategy game's siege screen. Create one finished image, ideally wide 16:9 landscape.
+Primary request: An original classical realist painting of a late Eastern Han Chinese city under siege, circa AD 196, with the quiet, detailed environmental illustration feel of early-2000s historical strategy games.
+Scene/backdrop: A broad ancient Chinese fortified city seen from outside. Thick weathered rammed-earth and stone-faced walls stretch horizontally across the middle distance, with a timber gatehouse and tiled roofs centered in the upper-middle of the composition. Distant mountains and pale sky recede through morning haze. The open earthen battlefield extends toward the viewer, with a few small formations of period infantry and a small number of wooden siege ladders, shield carts and a covered battering ram. Figures are tiny environmental details, not character portraits.
+Style/medium: Hand-painted classical historical realism, restrained detailed brushwork, subtle aged-paper grain, atmospheric depth, believable functional fortifications. Rich enough to be an actual game scene, not a diagram or interface mockup.
+Composition/framing: Wide, level frontal establishing view, no tilted camera, no isometric or 45-degree aerial viewpoint. Keep the central gate, continuous wall silhouette and central battlefield clearly visible. Leave subdued lower-detail breathing room at the upper left and upper right, plus the bottom quarter, where separate translucent interface windows will later float. Paint the entire canvas naturally; do not draw blank rectangles or placeholders.
+Lighting/mood: Soft early-morning light through light smoke and dust; calm but tense before the assault, legible forms and moderate contrast, no overwhelming fire.
+Color palette: Low saturation ink teal, slate blue-green shadows, muted earth ochre, dusty bronze gold, grey stone and warm parchment highlights.
+Constraints: Original scene only. No text, letters, calligraphy, UI, frames, diagrams, progress bars, logos or watermarks. No close-up faces or portraits. No European castles, modern buildings, firearms, cannons or fantasy creatures. Keep visible soldiers small and non-graphic.

@@ -1,0 +1,53 @@
+{
+  "title": "三国山河战略底图",
+  "generatedBy": "scripts/build-strategic-map.mjs",
+  "projection": {
+    "type": "equirectangular game projection",
+    "extent": {
+      "west": 93,
+      "east": 132,
+      "north": 43,
+      "south": 17
+    },
+    "width": 1800,
+    "height": 1500,
+    "x": "(longitude - 93) / 39 * 1800",
+    "y": "(43 - latitude) / 26 * 1500",
+    "orientation": "north up; no rotation"
+  },
+  "sources": [
+    {
+      "name": "Natural Earth 1:50m Land",
+      "license": "Public domain",
+      "url": "https://www.naturalearthdata.com/downloads/50m-physical-vectors/50m-land/",
+      "raw": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_land.geojson",
+      "usedFor": "Clipped land polygons and coastline; no administrative boundaries."
+    },
+    {
+      "name": "Natural Earth 1:50m Rivers + Lake Centerlines",
+      "license": "Public domain",
+      "url": "https://www.naturalearthdata.com/downloads/50m-physical-vectors/50m-rivers-lake-centerlines/",
+      "raw": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_rivers_lake_centerlines.geojson",
+      "usedFor": "Major river lines. Eastern Huang He replaced by a schematic Han–Tang route."
+    },
+    {
+      "name": "Natural Earth 1:50m Lakes",
+      "license": "Public domain",
+      "url": "https://www.naturalearthdata.com/downloads/50m-physical-vectors/50m-lakes/",
+      "raw": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_lakes.geojson",
+      "usedFor": "Selected natural lake outlines; named reservoir, Hongze and Weishan omitted."
+    },
+    {
+      "name": "宁夏回族自治区水利厅：历史人物——王景",
+      "url": "https://slt.nx.gov.cn/slxc/jswm/dycr/202104/t20210409_2706718.html",
+      "usedFor": "Textual reference for Eastern Han Xingyang–Qiancheng Yellow River works; does not supply precise vector geometry."
+    }
+  ],
+  "limitations": [
+    "POC game basemap, not an archaeological or navigational map. Modern coastline is a geographic scaffold and does not reconstruct Han–Wei coastal sedimentation.",
+    "Yellow River lower course is a hand-traced schematic toward Qiancheng near modern Lijin, based on the Han–Tang course; bends and historical shore intersection are approximate.",
+    "Dongting Lake, several secondary rivers, mountain ranges and relief are schematic. Existing lake outlines are modern geographic references, not third-century survey data.",
+    "Natural Earth geometry is generalized at 1:50 million; minor islands, streams and shoreline details are omitted. Equal degree spacing is used for predictable game placement, not equal distances.",
+    "No contemporary national or provincial borders or sovereignty labels are drawn. Region titles are decorative historical names, not jurisdiction boundaries."
+  ]
+}

@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#172820" />
+    <meta name="description" content="早期光荣三国志风格的月度经营与战棋战斗 POC" />
+    <title>52三国志</title>
+    <link rel="icon" href="./assets/seal.svg?v=18" type="image/svg+xml" />
+    <link rel="preload" href="./assets/fonts/SourceHanSansCN-Regular.otf" as="font" type="font/otf" crossorigin />
+    <link rel="preload" href="./assets/fonts/AlimamaDaoLiTi-Regular.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="./styles/main.css?v=20261021-7" />
+    <link rel="stylesheet" href="./styles/classic-theme.css?v=20261021-10" />
+    <link rel="stylesheet" href="./styles/tasks.css?v=20261021-9" />
+    <link rel="stylesheet" href="./styles/story-dialog.css?v=20261021-10" />
+    <link rel="stylesheet" href="./styles/warfare.css?v=20261022-14" />
+    <link rel="stylesheet" href="./styles/main-menu.css?v=20261022-17" />
+    <link rel="stylesheet" href="./styles/audio.css?v=20261022-15" />
+    <link rel="stylesheet" href="./styles/transitions.css?v=20261022-15" />
+    <link rel="stylesheet" href="./styles/typography.css?v=20261022-18" />
+  </head>
+  <body>
+    <section id="main-menu" class="main-menu" aria-label="游戏主菜单">
+      <div class="menu-shell">
+        <img src="./assets/seal.svg?v=18" class="menu-seal" alt="伍贰三国印" />
+        <p class="menu-eyebrow">群雄逐鹿 · 建安元年</p>
+        <h1 class="menu-title" aria-label="52三国志">52<span>三国志</span></h1>
+        <p class="menu-subtitle">山河未定，英雄待时。<br />执一方之印，问天下之势。</p>
+        <nav class="menu-options" aria-label="开始征程">
+          <button type="button" class="menu-option" data-menu-action="continue" hidden><i>续</i><span>继续游戏</span></button>
+          <button type="button" class="menu-option" data-menu-action="new" disabled><i>启</i><span>新游戏</span></button>
+          <button type="button" class="menu-option" data-menu-action="load" disabled><i>读</i><span>读取存档</span></button>
+          <button type="button" class="menu-option secondary" data-menu-action="audio" disabled><i>乐</i><span>声音设置</span></button>
+        </nav>
+        <p id="menu-save-summary" class="menu-save-summary" aria-live="polite">正在展卷……</p>
+        <footer class="menu-footer"><span>回合制君主经营 · 本地 POC</span><span>首次点击后启奏 · 进度自动保存在本机</span></footer>
+      </div>
+    </section>
+    <div class="app-shell" hidden>
+      <header class="topbar">
+        <div class="brand">
+          <img src="./assets/seal.svg?v=18" alt="伍贰三国印" width="58" height="58" />
+          <div>
+            <p class="eyebrow">回合制君主经营 · 战棋 POC</p>
+            <h1><span>52</span>三国志</h1>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-quiet" id="tasks-button" type="button">任务簿</button>
+          <button class="btn btn-quiet" id="factions-button" type="button">天下势力</button>
+          <button class="btn btn-quiet" id="reports-button" type="button">军府记事</button>
+          <button class="btn btn-quiet" id="help-button" type="button">玩法</button>
+          <button class="btn btn-quiet" id="audio-button" type="button">声音</button>
+          <button class="btn btn-quiet" id="game-menu-button" type="button" aria-haspopup="dialog" aria-expanded="false">菜单</button>
+        </div>
+      </header>
+
+      <main>
+        <section id="strategy-screen" class="screen strategy-screen map-reading" aria-label="战略界面">
+          <div class="turn-ribbon">
+            <div class="date-block">
+              <span id="season-mark" class="season-mark">春</span>
+              <div><strong id="date-label">建安元年 · 正月</strong><small id="income-hint">每月收金 · 七月收粮</small></div>
+            </div>
+            <span id="player-faction-label" class="player-faction-label"></span>
+            <div class="command-block">
+              <span>本月指令</span>
+              <div id="command-pips" class="command-pips" aria-label="剩余指令"></div>
+              <strong id="command-label">6 / 6</strong>
+            </div>
+            <button class="btn btn-primary" id="end-turn-button" type="button">结束本月 <span>›</span></button>
+          </div>
+
+          <div class="strategy-layout">
+            <aside class="panel city-roster-panel">
+              <div class="panel-heading">
+                <div><span class="kicker">领内</span><h2>直辖城池</h2></div>
+                <span id="city-count" class="round-badge">3</span>
+              </div>
+              <div id="city-list" class="city-list"></div>
+              <div class="delegation-note">
+                <span class="note-glyph">令</span>
+                <p><strong>太守自治</strong><br />有太守的城池每月会自行处理一项事务，不占君主指令。</p>
+              </div>
+            </aside>
+
+            <section class="map-card" aria-label="州郡地图">
+              <div class="map-toolbar">
+                <div>
+                  <span class="kicker">山川形胜 · 十三州</span>
+                  <h2>汉末天下 <small id="atlas-city-count"></small></h2>
+                </div>
+                <div id="faction-legend" class="faction-legend"></div>
+              </div>
+              <div id="strategic-map" class="strategic-map" tabindex="0" aria-label="天下地图，可拖动或使用方向键平移，滚轮缩放">
+                <div id="map-world" class="map-world">
+                  <img src="./assets/map/strategic-map.svg" class="atlas-geography" alt="汉末中国地理示意：海岸、山脉与主要水系" draggable="false" />
+                  <svg id="route-layer" class="route-layer" viewBox="0 0 1800 1500" aria-hidden="true"></svg>
+                  <div id="city-node-layer"></div>
+                </div>
+              </div>
+              <div class="map-compass" aria-hidden="true"><span>北</span><i>↑</i><small>西　东</small><span>南</span></div>
+              <div class="atlas-tools" aria-label="地图工具">
+                <div class="atlas-navigation">
+                  <button id="map-zoom-out" type="button" aria-label="缩小地图">−</button>
+                  <output id="map-zoom-level">100%</output>
+                  <button id="map-zoom-in" type="button" aria-label="放大地图">＋</button>
+                  <button id="map-fit" type="button">全图</button>
+                  <button id="map-home" type="button">本势力</button>
+                  <button id="map-hud-toggle" type="button" aria-pressed="false">显示军府</button>
+                </div>
+                <div class="atlas-search-row">
+                  <form id="city-search-form" class="city-search-form">
+                    <input id="city-search" type="search" placeholder="查找城池 / 别名" list="city-search-options" aria-label="查找城池" autocomplete="off" />
+                    <datalist id="city-search-options"></datalist>
+                    <button type="submit">定位</button>
+                  </form>
+                  <select id="map-region" aria-label="跳转地区"><option value="">九州分览</option></select>
+                  <button id="atlas-directory" type="button">城池图录</button>
+                </div>
+                <div class="atlas-layer-row">
+                  <label><input id="map-routes-toggle" type="checkbox" />交通线</label>
+                  <label><input id="map-labels-toggle" type="checkbox" checked />城名</label>
+                  <small>拖动地图 · 滚轮缩放 · 点击城池理政</small>
+                </div>
+              </div>
+              <div class="atlas-map-note">山川与古城位置示意 · 黄河下游取汉魏大致走向</div>
+            </section>
+
+            <aside class="panel city-detail-panel">
+              <button class="city-scene-button" id="city-overview-button" type="button" aria-label="查看城池详情">
+                <img id="city-theme-image" alt="区域城景" />
+                <span><small id="city-theme-name"></small><strong id="city-scene-title"></strong><em>查看城池详情 ↗</em></span>
+              </button>
+              <div class="selected-city-title">
+                <div>
+                  <span id="selected-province" class="kicker">豫州</span>
+                  <h2 id="selected-city-name">小沛</h2>
+                </div>
+                <span id="governor-chip" class="governor-chip">君主直辖</span>
+                <button id="city-panel-close" class="map-panel-close" type="button" aria-label="收起城池面板">×</button>
+              </div>
+              <p id="city-location" class="city-location"></p>
+              <div class="resource-row">
+                <div><span>金</span><strong id="city-gold">1,550</strong></div>
+                <div><span>粮</span><strong id="city-food">9,100</strong></div>
+                <div><span>兵</span><strong id="city-troops">10,500</strong></div>
+              </div>
+              <div id="city-economy" class="city-economy"></div>
+              <button id="city-trade-button" class="btn city-trade-button" type="button">商人 · 买卖粮食</button>
+              <div id="city-metrics" class="metric-list"></div>
+              <div class="section-heading"><h3>城内武将</h3><button id="officer-detail-button" class="text-button" type="button">查看名册</button></div>
+              <div id="officer-strip" class="officer-strip"></div>
+            </aside>
+          </div>
+
+          <section class="command-deck floating-command-deck" aria-label="指令分类">
+            <div class="command-deck-heading"><span>政令</span><small id="command-context-label">选择小沛的事务类别</small></div>
+            <div id="command-actions" class="command-actions">
+              <button class="command-button" data-category="domestic"><span class="command-icon">政</span><strong>内政</strong><small>开发 · 治安</small></button>
+              <button class="command-button" data-category="personnel"><span class="command-icon">人</span><strong>人事</strong><small>寻访 · 登用</small></button>
+              <button class="command-button command-war" data-category="military"><span class="command-icon">军</span><strong>军事</strong><small>征募 · 出征</small></button>
+              <button class="command-button" data-category="diplomacy"><span class="command-icon">交</span><strong>外交</strong><small>亲善 · 结盟</small></button>
+              <button class="command-button" data-category="strategy"><span class="command-icon">策</span><strong>策略</strong><small>流言 · 离间</small></button>
+            </div>
+          </section>
+
+          <section class="chronicle panel">
+            <div class="panel-heading compact"><div><span class="kicker">军府记事</span><h2>本月纪要</h2></div><span class="live-dot">最新</span></div>
+            <div id="event-log" class="event-log"></div>
+          </section>
+        </section>
+
+        <section id="battle-screen" class="screen battle-screen is-hidden" aria-label="战斗界面">
+          <button id="battle-hud-toggle" class="battle-hud-toggle btn" type="button" aria-pressed="false">收起浮窗</button>
+          <header class="battle-header">
+            <div><span class="kicker" id="battle-phase-label">野战</span><h2 id="battle-title">小沛攻略战</h2></div>
+            <div class="battle-clock"><small id="battle-limit-label">攻城剩余期限</small><strong><span id="battle-days-left">30</span> 日</strong></div>
+            <div class="battle-score">
+              <span class="ally-dot"></span><strong id="ally-troops">0</strong>
+              <em>兵力</em>
+              <strong id="enemy-troops">0</strong><span class="enemy-dot"></span>
+            </div>
+            <button id="retreat-button" class="btn btn-danger" type="button">撤军</button>
+          </header>
+          <div class="battle-layout">
+            <aside class="panel battle-order-panel">
+              <div class="panel-heading compact"><div><span class="kicker">先后</span><h2>行动顺序</h2></div></div>
+              <div id="initiative-list" class="initiative-list"></div>
+              <div class="terrain-key">
+                <span><i class="terrain-swatch plain"></i>平原</span>
+                <span><i class="terrain-swatch forest"></i>树林</span>
+                <span><i class="terrain-swatch hill"></i>山地</span>
+                <span><i class="terrain-swatch fort"></i>城寨</span>
+                <span><i class="terrain-swatch fog"></i>战争迷雾</span>
+                <span><i class="terrain-swatch zoc"></i>敌军控制区</span>
+              </div>
+              <p class="field-rule-hint">树林、山地中的敌情需邻接侦察。不能从敌方控制区直接移入另一格控制区；可先退后再绕行。</p>
+            </aside>
+            <section class="battlefield-wrap">
+              <div class="day-banner"><span>第</span><strong id="battle-day">1</strong><span>日 · <b id="active-side-label">我军行动</b></span></div>
+              <div id="battlefield" class="battlefield" aria-label="错格战场"></div>
+              <div id="battle-tip" class="battle-tip">选择一项军令，再点击高亮地块</div>
+            </section>
+            <aside class="panel unit-panel">
+              <div id="battle-supplies" class="battle-supplies" aria-live="polite"></div>
+              <div id="active-unit-card" class="active-unit-card"></div>
+              <div class="battle-actions" id="battle-actions">
+                <button data-mode="move" class="battle-action"><span>走</span><strong>移动</strong><small>按地形消耗行动力</small></button>
+                <button data-mode="cautious" class="battle-action"><span>戒</span><strong>警戒移动</strong><small>高消耗 · 免触发伏击</small></button>
+                <button data-mode="attack" class="battle-action"><span>击</span><strong>攻击</strong><small>消耗 3 行动力</small></button>
+                <button data-mode="fire" class="battle-action"><span>火</span><strong>火攻</strong><small>消耗 4 行动力</small></button>
+                <button data-mode="ambush" class="battle-action"><span>伏</span><strong>埋伏</strong><small>树林／山地 · 结束行动</small></button>
+                <button data-mode="wait" class="battle-action"><span>待</span><strong>结束行动</strong><small>剩余行动力作废</small></button>
+                <button data-mode="return" class="battle-action" hidden><span>城</span><strong>回城据守</strong><small>退出野战，保留兵力参与守城</small></button>
+              </div>
+            </aside>
+            <details class="field-log-window" open><summary>野战纪要</summary><div id="battle-log" class="battle-log" aria-live="polite"></div></details>
+          </div>
+          <section id="siege-view" class="siege-view is-hidden" aria-label="攻城指挥"></section>
+          <details id="siege-log-window" class="siege-log-window is-hidden" open><summary>战况纪要</summary><div id="siege-log" class="siege-log" aria-live="polite"></div></details>
+        </section>
+      </main>
+    </div>
+
+    <div id="modal-root"></div>
+    <div id="toast-root" class="toast-root" aria-live="polite"></div>
+    <script type="module" src="./js/app.js?v=20261022-18"></script>
+  </body>
+</html>

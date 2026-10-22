@@ -1,0 +1,18 @@
+<!doctype html><meta charset="utf-8"><title>跨平台字体验收</title>
+<h1>项目字体文件加载验收（不查找系统字体）</h1><div id="results"></div>
+<script type="module">
+for (const [family, file] of [['BundledHei', 'SourceHanSansCN-Regular.otf'], ['BundledLishu', 'AlimamaDaoLiTi-Regular.woff2']]) {
+  const row = document.createElement('p');
+  document.querySelector('#results').append(row);
+  try {
+    const face = new FontFace(`Probe-${family}`, `url("../dist/assets/fonts/${file}")`);
+    await face.load();
+    document.fonts.add(face);
+    row.textContent = `${file} — 已从项目文件加载：52三国志，伍贰三国，游戏菜单，存档读档。`;
+    row.style.fontFamily = `"Probe-${family}"`;
+    row.style.fontSize = '28px';
+  } catch (error) {
+    row.textContent = `${family} — 未加载：${error.message}`;
+  }
+}
+</script>

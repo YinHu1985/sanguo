@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" fill="none">
+  <title>青铜方胜角花</title>
+  <desc>原创透明左上角饰，可水平或垂直翻转用于浮窗四角。</desc>
+  <path d="M1.5 38V1.5H38" stroke="#111f24" stroke-opacity=".7" stroke-width="3"/>
+  <path d="M2 38V2h36" stroke="#b7a06e" stroke-width="1"/>
+  <path d="M5 31V5h26" stroke="#dfcca0" stroke-opacity=".62" stroke-width=".75"/>
+  <path d="M9 27V9h18v5H14v13H9Z" fill="#8f7950" fill-opacity=".14" stroke="#b7a06e" stroke-width=".85"/>
+  <path d="M17 22v-5h5v5h-5Zm-3 5h8v-5m0-8h5v8h-5" stroke="#b7a06e" stroke-opacity=".72" stroke-width=".85"/>
+  <path d="M5 35v3m30-33h3" stroke="#dfcca0" stroke-opacity=".65" stroke-width="1"/>
+  <path d="m8 3 2 2-2 2-2-2 2-2Zm-5 5 2-2 2 2-2 2-2-2Z" fill="#c7af7e" fill-opacity=".75"/>
+</svg>

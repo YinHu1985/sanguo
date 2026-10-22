@@ -1,0 +1,16 @@
+{
+  "width": 9,
+  "height": 7,
+  "stronghold": {"x":8,"y":3},
+  "attackerStarts": [{"x":0,"y":2},{"x":0,"y":3},{"x":0,"y":4},{"x":0,"y":1},{"x":0,"y":5}],
+  "defenderStarts": [{"x":8,"y":2},{"x":7,"y":3},{"x":8,"y":4},{"x":8,"y":1},{"x":8,"y":5}],
+  "terrain": [
+    "plain","plain","forest","plain","hill","plain","forest","plain","plain",
+    "plain","forest","forest","plain","hill","plain","plain","forest","plain",
+    "plain","plain","plain","plain","hill","hill","plain","plain","plain",
+    "plain","plain","river","river","plain","plain","plain","fort","fort",
+    "plain","forest","plain","river","plain","forest","plain","fort","fort",
+    "plain","forest","plain","plain","plain","forest","hill","plain","plain",
+    "plain","plain","plain","forest","plain","plain","hill","plain","plain"
+  ]
+}

@@ -1,0 +1,35 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>独立防守验收存档</title>
+<h1>防守战场验收</h1>
+<p>仅用于 4174 端口的独立测试，不触碰正式 4173 存档。</p>
+<button data-case="win">载入断粮退敌验收局</button>
+<button data-case="retreat">载入弃城验收局</button>
+<button data-case="loss">载入守方断粮验收局</button>
+<p id="status"></p>
+<script type="module">
+import { createInitialState, saveState } from "../dist/js/game/state.js";
+import { applyAtlasToScenario } from "../dist/js/game/atlas.js";
+if (location.port !== "4174") throw new Error("此验收页仅允许独立端口 4174");
+const [raw, rules, atlas] = await Promise.all(["scenario", "rules", "strategic-atlas"].map(async (name) => (await fetch(`../dist/data/${name}.json`)).json()));
+const scenario = applyAtlasToScenario(raw, atlas);
+for (const button of document.querySelectorAll("button")) button.addEventListener("click", () => {
+  const state = createInitialState(scenario, rules);
+  Object.assign(state, { started: true, playerFactionId: "cao-cao", selectedCityId: "xuchang", month: 12, elapsedMonths: 1,
+    lastTurnOpening: "196-11", turnResolution: { stage: "invasions", targetTurn: 1 } });
+  const source = state.cities.find((city) => city.id === "wan");
+  const target = state.cities.find((city) => city.id === "xuchang");
+  target.troops = 3000;
+  target.food = button.dataset.case === "loss" ? 0 : 10000;
+  target.gold = 500;
+  const food = button.dataset.case === "win" ? 8 : 1000;
+  source.troops -= 2000; source.food -= food; source.gold -= 100 + rules.actions.march;
+  state.pendingInvasions = [{ id: "qa-defense", sourceId: source.id, targetId: target.id,
+    attackerFactionId: source.factionId, defenderFactionId: target.factionId, officerIds: ["zhang-xiu"],
+    divisions: [{ officerId: "zhang-xiu", troops: 2000, unitType: "infantry" }], troops: 2000,
+    training: source.training, morale: source.morale, supplies: { food, gold: 100 }, resolved: false, year: state.year, month: state.month }];
+  state.officers.find((officer) => officer.id === "zhang-xiu").acted = true;
+  saveState(state);
+  location.href = "../dist/?qa=manual-defense";
+});
+</script>

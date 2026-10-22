@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "credit": "本游戏原创程序编曲与合成，无外部采样。可使用 scripts/generate-audio.mjs 重新生成。",
+  "fadeMs": 850,
+  "defaults": { "musicVolume": 0.32, "effectsVolume": 0.45, "muted": false },
+  "tracks": {
+    "strategy": { "src": "../assets/audio/strategy-courtyard.wav", "title": "江山闲赋", "duration": 53.333, "bpm": 72 },
+    "battle": { "src": "../assets/audio/battle-banners.wav", "title": "旌旗动地", "duration": 36.923, "bpm": 104 }
+  },
+  "effects": { "click": { "src": "../assets/audio/ui-wood.wav", "title": "木筹轻叩", "duration": 0.2 } }
+}

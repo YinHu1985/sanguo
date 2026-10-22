@@ -1,0 +1,31 @@
+/* Brief, visual-only dissolves: bronze-framed windows open like a dispatch. */
+.scene-transition-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 45%, #203b35b0 0%, #0b1b1ee6 83%),
+    url('../assets/ui/cloud-brocade.svg');
+  animation: ink-scene-dissolve 440ms ease-out both;
+}
+@keyframes ink-scene-dissolve {
+  0% { opacity: .72; }
+  16% { opacity: .86; }
+  100% { opacity: 0; }
+}
+
+/* These surfaces use the shared visual lifecycle, including closing frames. */
+.story-dialog { animation: none; }
+[data-window-closing="true"] { pointer-events: none !important; }
+[data-window-closing="true"] * { pointer-events: none !important; }
+.btn, .modal-close, .story-continue, .story-close, .command-group, .battle-action {
+  transition: filter 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+}
+.btn:active, .modal-close:active, .story-continue:active, .story-close:active {
+  filter: brightness(.88);
+}
+@media (prefers-reduced-motion: reduce) {
+  .scene-transition-veil { display: none; animation: none; }
+  .btn, .modal-close, .story-continue, .story-close, .command-group, .battle-action { transition: none; }
+}

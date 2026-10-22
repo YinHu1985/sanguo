@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 700" preserveAspectRatio="xMidYMax slice">
+  <defs>
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#183126" stop-opacity="0"/><stop offset="1" stop-color="#14231d" stop-opacity=".9"/></linearGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="5"/></filter>
+  </defs>
+  <path d="M0 480L180 330l95 76 160-233 158 247 130-133 188 186 114-146 211 150 192-218 172 182v259H0z" fill="#243f33" opacity=".38" filter="url(#blur)"/>
+  <path d="M0 548l180-136 110 80 158-189 154 202 140-105 180 115 147-84 177 109 170-141 164 112v189H0z" fill="#132b22" opacity=".68"/>
+  <rect width="1600" height="700" fill="url(#fade)"/>
+</svg>

@@ -1,0 +1,65 @@
+{
+  "id": "xuzhou-196",
+  "title": "徐州风云",
+  "subtitle": "建安元年 · 群雄并起",
+  "year": 196,
+  "month": 1,
+  "playerFactionId": "liu-bei",
+  "factions": [
+    { "id": "liu-bei", "name": "刘备军", "lord": "liu-bei", "color": "#b54a35", "accent": "#f0d59b" },
+    { "id": "cao-cao", "name": "曹操军", "lord": "cao-cao", "color": "#405d52", "accent": "#d5c192" },
+    { "id": "yuan-shu", "name": "袁术军", "lord": "ji-ling", "color": "#70537a", "accent": "#e6d0ae" }
+  ],
+  "cities": [
+    {
+      "id": "xiaopei", "name": "小沛", "province": "豫州", "factionId": "liu-bei", "x": 44, "y": 33,
+      "agriculture": 54, "commerce": 42, "popularSupport": 71, "gold": 1550, "food": 9100,
+      "troops": 10500, "training": 68, "morale": 74, "governorId": null,
+      "officerIds": ["liu-bei", "guan-yu", "zhang-fei", "jian-yong"],
+      "adjacent": ["xuchang", "puyang", "xuzhou"]
+    },
+    {
+      "id": "xuzhou", "name": "徐州", "province": "徐州", "factionId": "liu-bei", "x": 61, "y": 57,
+      "agriculture": 67, "commerce": 61, "popularSupport": 79, "gold": 2100, "food": 12600,
+      "troops": 8200, "training": 55, "morale": 68, "governorId": "chen-deng",
+      "officerIds": ["chen-deng", "mi-zhu", "sun-qian", "cao-bao"],
+      "adjacent": ["xiaopei", "shouchun"]
+    },
+    {
+      "id": "puyang", "name": "濮阳", "province": "兖州", "factionId": "cao-cao", "x": 49, "y": 14,
+      "agriculture": 62, "commerce": 58, "popularSupport": 65, "gold": 2400, "food": 11800,
+      "troops": 11200, "training": 72, "morale": 80, "governorId": "xiahou-dun",
+      "officerIds": ["xiahou-dun", "cheng-yu"],
+      "adjacent": ["xiaopei", "xuchang"]
+    },
+    {
+      "id": "xuchang", "name": "许昌", "province": "豫州", "factionId": "cao-cao", "x": 24, "y": 27,
+      "agriculture": 76, "commerce": 73, "popularSupport": 70, "gold": 3850, "food": 17100,
+      "troops": 14900, "training": 78, "morale": 82, "governorId": "cao-cao",
+      "officerIds": ["cao-cao", "xun-yu"],
+      "adjacent": ["xiaopei", "puyang", "shouchun"]
+    },
+    {
+      "id": "shouchun", "name": "寿春", "province": "扬州", "factionId": "yuan-shu", "x": 42, "y": 76,
+      "agriculture": 69, "commerce": 66, "popularSupport": 48, "gold": 3200, "food": 14500,
+      "troops": 12800, "training": 64, "morale": 70, "governorId": "ji-ling",
+      "officerIds": ["ji-ling"],
+      "adjacent": ["xuzhou", "xuchang"]
+    }
+  ],
+  "officers": [
+    { "id": "liu-bei", "name": "刘备", "courtesy": "玄德", "factionId": "liu-bei", "rank": "君主", "war": 75, "intelligence": 74, "leadership": 83, "politics": 78, "charm": 99, "merit": 4800, "portrait": "liubei" },
+    { "id": "guan-yu", "name": "关羽", "courtesy": "云长", "factionId": "liu-bei", "rank": "大将", "war": 97, "intelligence": 75, "leadership": 94, "politics": 63, "charm": 92, "merit": 4120, "portrait": "guanyu" },
+    { "id": "zhang-fei", "name": "张飞", "courtesy": "翼德", "factionId": "liu-bei", "rank": "中郎将", "war": 98, "intelligence": 32, "leadership": 84, "politics": 29, "charm": 45, "merit": 3890, "portrait": "zhangfei" },
+    { "id": "jian-yong", "name": "简雍", "courtesy": "宪和", "factionId": "liu-bei", "rank": "从事", "war": 31, "intelligence": 72, "leadership": 43, "politics": 76, "charm": 83, "merit": 1230, "portrait": "jianyong" },
+    { "id": "chen-deng", "name": "陈登", "courtesy": "元龙", "factionId": "liu-bei", "rank": "军师", "war": 67, "intelligence": 89, "leadership": 76, "politics": 93, "charm": 79, "merit": 2680, "portrait": "chendeng" },
+    { "id": "mi-zhu", "name": "糜竺", "courtesy": "子仲", "factionId": "liu-bei", "rank": "从事", "war": 27, "intelligence": 73, "leadership": 40, "politics": 86, "charm": 88, "merit": 1780, "portrait": "mizhu" },
+    { "id": "sun-qian", "name": "孙乾", "courtesy": "公祐", "factionId": "liu-bei", "rank": "从事", "war": 35, "intelligence": 78, "leadership": 46, "politics": 82, "charm": 84, "merit": 1490, "portrait": "sunqian" },
+    { "id": "cao-bao", "name": "曹豹", "courtesy": "", "factionId": "liu-bei", "rank": "校尉", "war": 65, "intelligence": 36, "leadership": 61, "politics": 42, "charm": 38, "merit": 980, "portrait": "caobao" },
+    { "id": "cao-cao", "name": "曹操", "courtesy": "孟德", "factionId": "cao-cao", "rank": "君主", "war": 72, "intelligence": 92, "leadership": 96, "politics": 94, "charm": 91, "merit": 6100, "portrait": "caocao" },
+    { "id": "xiahou-dun", "name": "夏侯惇", "courtesy": "元让", "factionId": "cao-cao", "rank": "大将", "war": 91, "intelligence": 61, "leadership": 89, "politics": 70, "charm": 82, "merit": 4350, "portrait": "xiahoudun" },
+    { "id": "cheng-yu", "name": "程昱", "courtesy": "仲德", "factionId": "cao-cao", "rank": "军师", "war": 48, "intelligence": 92, "leadership": 73, "politics": 84, "charm": 55, "merit": 3100, "portrait": "chengyu" },
+    { "id": "xun-yu", "name": "荀彧", "courtesy": "文若", "factionId": "cao-cao", "rank": "军师", "war": 14, "intelligence": 95, "leadership": 62, "politics": 98, "charm": 93, "merit": 3600, "portrait": "xunyu" },
+    { "id": "ji-ling", "name": "纪灵", "courtesy": "", "factionId": "yuan-shu", "rank": "大将", "war": 83, "intelligence": 51, "leadership": 78, "politics": 44, "charm": 58, "merit": 3050, "portrait": "jiling" }
+  ]
+}

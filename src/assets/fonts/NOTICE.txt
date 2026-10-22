@@ -1,0 +1,20 @@
+52三国志 — 本地字体资源
+
+正文：Source Han Sans CN Regular / 思源黑体 CN
+Copyright 2014-2025 Adobe. SIL Open Font License 1.1.
+完整许可：SourceHanSans-LICENSE.txt
+原始来源：https://github.com/adobe-fonts/source-han-sans/tree/release/SubsetOTF/CN
+文件 SHA-256：e2bc8a2e7f37474b774fff8db758681ece40bb6947a90d571bce9dd60671a8e4
+
+标题：阿里妈妈刀隶体 / Alimama DaoLiTi Regular
+版权所有：淘宝（中国）软件有限公司（阿里妈妈）。
+下载来源：https://fonts.alibabagroup.com/
+原始文件：https://fonts.alibabadesign.com/AlimamaDaoLiTi/AlimamaDaoLiTi-Regular/AlimamaDaoLiTi-Regular.woff2
+文件 SHA-256：85a8afa1a7503418575793effe55bd13d99b3d0f5a82fdb7e83ec1c4910a2efb
+官方声明快照：AlimamaDaoLiTi-official-license.json，data.license_description。
+声明来源：https://www.iconfont.cn/api/collection/font_detail.json?cnid=1ntUmJ7Q4Jhw
+当前用途：用户个人本地游戏中的嵌入式使用。字体文件未经修改、转换或子集化。
+这不是开源字体，亦不代表作者背书。本项目尚未发布或分发；公开发布或将含此字体
+的游戏包分发给其他人之前，须重新确认许可或替换字体。官方最新条款优先。
+
+运行时两个字体均从本项目文件读取，不依赖 Windows/macOS 的已安装字体。

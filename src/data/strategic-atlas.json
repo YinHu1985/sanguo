@@ -1,0 +1,1592 @@
+{
+  "version": 1,
+  "projection": {
+    "width": 1800,
+    "height": 1500,
+    "west": 93,
+    "east": 132,
+    "north": 43,
+    "south": 17
+  },
+  "cities": [
+    {
+      "id": "dunhuang",
+      "name": "敦煌",
+      "province": "凉州",
+      "region": "河西",
+      "longitude": 94.66,
+      "latitude": 40.14,
+      "aliases": [
+        "敦煌郡"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "jiuquan"
+      ]
+    },
+    {
+      "id": "jiuquan",
+      "name": "酒泉",
+      "province": "凉州",
+      "region": "河西",
+      "longitude": 98.49,
+      "latitude": 39.73,
+      "aliases": [
+        "禄福"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "dunhuang",
+        "zhangye"
+      ]
+    },
+    {
+      "id": "zhangye",
+      "name": "张掖",
+      "province": "凉州",
+      "region": "河西",
+      "longitude": 100.45,
+      "latitude": 38.94,
+      "aliases": [
+        "觻得"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "jiuquan",
+        "wuwei"
+      ]
+    },
+    {
+      "id": "wuwei",
+      "name": "武威",
+      "province": "凉州",
+      "region": "西北",
+      "longitude": 102.64,
+      "latitude": 37.93,
+      "aliases": [
+        "姑臧"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "jincheng",
+        "zhangye"
+      ]
+    },
+    {
+      "id": "jincheng",
+      "name": "金城",
+      "province": "凉州",
+      "region": "西北",
+      "longitude": 103.83,
+      "latitude": 36.05,
+      "aliases": [
+        "金城郡"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "anding",
+        "longxi",
+        "wuwei",
+        "xiping"
+      ]
+    },
+    {
+      "id": "xiping",
+      "name": "西平",
+      "province": "凉州",
+      "region": "西北",
+      "longitude": 101.78,
+      "latitude": 36.62,
+      "aliases": [
+        "西平郡"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "jincheng"
+      ]
+    },
+    {
+      "id": "longxi",
+      "name": "陇西",
+      "province": "凉州",
+      "region": "西北",
+      "longitude": 104.63,
+      "latitude": 35,
+      "aliases": [
+        "襄武"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "jincheng",
+        "tianshui",
+        "wudu"
+      ]
+    },
+    {
+      "id": "tianshui",
+      "name": "天水",
+      "province": "凉州",
+      "region": "西北",
+      "longitude": 105.33,
+      "latitude": 34.73,
+      "aliases": [
+        "汉阳",
+        "冀县"
+      ],
+      "labelSide": "right",
+      "labelDy": 13,
+      "adjacent": [
+        "anding",
+        "changan",
+        "longxi",
+        "wudu"
+      ]
+    },
+    {
+      "id": "anding",
+      "name": "安定",
+      "province": "凉州",
+      "region": "西北",
+      "longitude": 107.39,
+      "latitude": 35.54,
+      "aliases": [
+        "临泾"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "changan",
+        "jincheng",
+        "tianshui"
+      ]
+    },
+    {
+      "id": "changan",
+      "name": "长安",
+      "province": "司隶",
+      "region": "关中",
+      "longitude": 108.9,
+      "latitude": 34.27,
+      "aliases": [
+        "京兆"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "anding",
+        "hanzhong",
+        "hedong",
+        "hongnong",
+        "tianshui"
+      ]
+    },
+    {
+      "id": "yunzhong",
+      "name": "云中",
+      "province": "并州",
+      "region": "北地",
+      "longitude": 111.2,
+      "latitude": 40.27,
+      "aliases": [
+        "云中郡"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "yanmen"
+      ]
+    },
+    {
+      "id": "yanmen",
+      "name": "雁门",
+      "province": "并州",
+      "region": "北地",
+      "longitude": 112.83,
+      "latitude": 39.53,
+      "aliases": [
+        "阴馆"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "daijun",
+        "jinyang",
+        "yunzhong"
+      ]
+    },
+    {
+      "id": "daijun",
+      "name": "代郡",
+      "province": "幽州",
+      "region": "北地",
+      "longitude": 114.56,
+      "latitude": 39.84,
+      "aliases": [
+        "代县"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "ji",
+        "yanmen",
+        "zhongshan"
+      ]
+    },
+    {
+      "id": "jinyang",
+      "name": "晋阳",
+      "province": "并州",
+      "region": "河东",
+      "longitude": 112.44,
+      "latitude": 37.71,
+      "aliases": [
+        "太原"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "changshan",
+        "hedong",
+        "shangdang",
+        "yanmen"
+      ]
+    },
+    {
+      "id": "shangdang",
+      "name": "上党",
+      "province": "并州",
+      "region": "河东",
+      "longitude": 113.11,
+      "latitude": 36.19,
+      "aliases": [
+        "壶关"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "hedong",
+        "henei",
+        "jinyang",
+        "ye"
+      ]
+    },
+    {
+      "id": "hedong",
+      "name": "河东",
+      "province": "司隶",
+      "region": "河东",
+      "longitude": 110.84,
+      "latitude": 34.98,
+      "aliases": [
+        "安邑"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "changan",
+        "hongnong",
+        "jinyang",
+        "shangdang"
+      ]
+    },
+    {
+      "id": "hongnong",
+      "name": "弘农",
+      "province": "司隶",
+      "region": "中原",
+      "longitude": 110.89,
+      "latitude": 34.55,
+      "aliases": [
+        "弘农郡"
+      ],
+      "labelSide": "right",
+      "labelDy": 14,
+      "adjacent": [
+        "changan",
+        "hedong",
+        "luoyang",
+        "wan"
+      ]
+    },
+    {
+      "id": "ji",
+      "name": "蓟",
+      "province": "幽州",
+      "region": "河北",
+      "longitude": 116.37,
+      "latitude": 39.88,
+      "aliases": [
+        "蓟城"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "beiping",
+        "daijun",
+        "nanpi",
+        "zhongshan"
+      ]
+    },
+    {
+      "id": "beiping",
+      "name": "北平",
+      "province": "幽州",
+      "region": "河北",
+      "longitude": 118.16,
+      "latitude": 39.83,
+      "aliases": [
+        "右北平",
+        "土垠"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "ji",
+        "liaoxi"
+      ]
+    },
+    {
+      "id": "liaoxi",
+      "name": "辽西",
+      "province": "幽州",
+      "region": "辽东",
+      "longitude": 121.1,
+      "latitude": 41.12,
+      "aliases": [
+        "阳乐"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "beiping",
+        "xiangping"
+      ]
+    },
+    {
+      "id": "xiangping",
+      "name": "襄平",
+      "province": "幽州",
+      "region": "辽东",
+      "longitude": 123.17,
+      "latitude": 41.27,
+      "aliases": [
+        "辽东"
+      ],
+      "labelSide": "right",
+      "labelDy": 15,
+      "adjacent": [
+        "liaoxi",
+        "xuantu"
+      ]
+    },
+    {
+      "id": "xuantu",
+      "name": "玄菟",
+      "province": "幽州",
+      "region": "辽东",
+      "longitude": 123.75,
+      "latitude": 41.9,
+      "aliases": [
+        "高句丽县"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "xiangping"
+      ]
+    },
+    {
+      "id": "zhongshan",
+      "name": "中山",
+      "province": "冀州",
+      "region": "河北",
+      "longitude": 114.99,
+      "latitude": 38.52,
+      "aliases": [
+        "卢奴"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "changshan",
+        "daijun",
+        "ji",
+        "nanpi"
+      ]
+    },
+    {
+      "id": "changshan",
+      "name": "常山",
+      "province": "冀州",
+      "region": "河北",
+      "longitude": 114.32,
+      "latitude": 38.15,
+      "aliases": [
+        "元氏",
+        "真定"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "jinyang",
+        "julu",
+        "zhongshan"
+      ]
+    },
+    {
+      "id": "julu",
+      "name": "钜鹿",
+      "province": "冀州",
+      "region": "河北",
+      "longitude": 114.92,
+      "latitude": 37.62,
+      "aliases": [
+        "巨鹿",
+        "瘿陶"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "changshan",
+        "ganling",
+        "ye"
+      ]
+    },
+    {
+      "id": "ganling",
+      "name": "甘陵",
+      "province": "冀州",
+      "region": "河北",
+      "longitude": 115.7,
+      "latitude": 36.85,
+      "aliases": [
+        "清河"
+      ],
+      "labelSide": "left",
+      "labelDy": 17,
+      "adjacent": [
+        "julu",
+        "nanpi",
+        "pingyuan",
+        "ye"
+      ]
+    },
+    {
+      "id": "ye",
+      "name": "邺",
+      "province": "冀州",
+      "region": "河北",
+      "longitude": 114.61,
+      "latitude": 36.28,
+      "aliases": [
+        "邺城",
+        "魏郡"
+      ],
+      "labelSide": "right",
+      "labelDy": 13,
+      "adjacent": [
+        "ganling",
+        "henei",
+        "julu",
+        "puyang",
+        "shangdang"
+      ]
+    },
+    {
+      "id": "nanpi",
+      "name": "南皮",
+      "province": "冀州",
+      "region": "河北",
+      "longitude": 116.7,
+      "latitude": 38.05,
+      "aliases": [
+        "渤海"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "ganling",
+        "ji",
+        "pingyuan",
+        "zhongshan"
+      ]
+    },
+    {
+      "id": "pingyuan",
+      "name": "平原",
+      "province": "青州",
+      "region": "青徐",
+      "longitude": 116.43,
+      "latitude": 37.17,
+      "aliases": [
+        "平原郡"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "ganling",
+        "jibei",
+        "linzi",
+        "nanpi"
+      ]
+    },
+    {
+      "id": "beihai",
+      "name": "北海",
+      "province": "青州",
+      "region": "青徐",
+      "longitude": 118.84,
+      "latitude": 36.75,
+      "aliases": [
+        "北海国",
+        "剧县"
+      ],
+      "labelSide": "right",
+      "labelDy": 13,
+      "adjacent": [
+        "donglai",
+        "langya",
+        "linzi"
+      ]
+    },
+    {
+      "id": "donglai",
+      "name": "东莱",
+      "province": "青州",
+      "region": "青徐",
+      "longitude": 120.4,
+      "latitude": 37.35,
+      "aliases": [
+        "黄县"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "beihai"
+      ]
+    },
+    {
+      "id": "linzi",
+      "name": "临淄",
+      "province": "青州",
+      "region": "青徐",
+      "longitude": 118.3,
+      "latitude": 36.84,
+      "aliases": [
+        "齐国",
+        "齐郡"
+      ],
+      "labelSide": "left",
+      "labelDy": -15,
+      "adjacent": [
+        "beihai",
+        "jibei",
+        "pingyuan",
+        "taishan"
+      ]
+    },
+    {
+      "id": "jibei",
+      "name": "济北",
+      "province": "兖州",
+      "region": "青徐",
+      "longitude": 116.54,
+      "latitude": 36.38,
+      "aliases": [
+        "卢县"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "linzi",
+        "pingyuan",
+        "puyang",
+        "taishan"
+      ]
+    },
+    {
+      "id": "taishan",
+      "name": "泰山",
+      "province": "兖州",
+      "region": "青徐",
+      "longitude": 117.14,
+      "latitude": 36.18,
+      "aliases": [
+        "奉高"
+      ],
+      "labelSide": "right",
+      "labelDy": 12,
+      "adjacent": [
+        "jibei",
+        "langya",
+        "linzi",
+        "xiaopei"
+      ]
+    },
+    {
+      "id": "langya",
+      "name": "琅琊",
+      "province": "徐州",
+      "region": "青徐",
+      "longitude": 118.34,
+      "latitude": 35.06,
+      "aliases": [
+        "琅邪",
+        "开阳"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "beihai",
+        "taishan",
+        "xiaopei",
+        "xuzhou"
+      ]
+    },
+    {
+      "id": "henei",
+      "name": "河内",
+      "province": "司隶",
+      "region": "中原",
+      "longitude": 113.4,
+      "latitude": 35.1,
+      "aliases": [
+        "怀县"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "luoyang",
+        "puyang",
+        "shangdang",
+        "ye"
+      ]
+    },
+    {
+      "id": "luoyang",
+      "name": "洛阳",
+      "province": "司隶",
+      "region": "中原",
+      "longitude": 112.68,
+      "latitude": 34.73,
+      "aliases": [
+        "雒阳"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "chenliu",
+        "henei",
+        "hongnong",
+        "wan",
+        "xuchang"
+      ]
+    },
+    {
+      "id": "chenliu",
+      "name": "陈留",
+      "province": "兖州",
+      "region": "中原",
+      "longitude": 114.53,
+      "latitude": 34.66,
+      "aliases": [
+        "陈留郡"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "luoyang",
+        "puyang",
+        "qiao",
+        "xuchang"
+      ]
+    },
+    {
+      "id": "puyang",
+      "name": "濮阳",
+      "province": "兖州",
+      "region": "中原",
+      "longitude": 115.03,
+      "latitude": 35.71,
+      "aliases": [
+        "东郡"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "chenliu",
+        "henei",
+        "jibei",
+        "xiaopei",
+        "ye"
+      ]
+    },
+    {
+      "id": "xuchang",
+      "name": "许昌",
+      "province": "豫州",
+      "region": "中原",
+      "longitude": 113.95,
+      "latitude": 34.02,
+      "aliases": [
+        "许",
+        "许县"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "chenliu",
+        "luoyang",
+        "qiao",
+        "runan",
+        "wan"
+      ]
+    },
+    {
+      "id": "runan",
+      "name": "汝南",
+      "province": "豫州",
+      "region": "中原",
+      "longitude": 114.36,
+      "latitude": 33,
+      "aliases": [
+        "平舆"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "jiangxia",
+        "qiao",
+        "shouchun",
+        "xinye",
+        "xuchang"
+      ]
+    },
+    {
+      "id": "qiao",
+      "name": "谯",
+      "province": "豫州",
+      "region": "中原",
+      "longitude": 115.78,
+      "latitude": 33.87,
+      "aliases": [
+        "谯县",
+        "谯郡"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "chenliu",
+        "pengcheng",
+        "runan",
+        "shouchun",
+        "xiaopei",
+        "xuchang"
+      ]
+    },
+    {
+      "id": "xiaopei",
+      "name": "小沛",
+      "province": "豫州",
+      "region": "青徐",
+      "longitude": 116.93,
+      "latitude": 34.73,
+      "aliases": [
+        "沛",
+        "沛县"
+      ],
+      "labelSide": "left",
+      "labelDy": -14,
+      "adjacent": [
+        "langya",
+        "pengcheng",
+        "puyang",
+        "qiao",
+        "taishan",
+        "xuzhou"
+      ]
+    },
+    {
+      "id": "pengcheng",
+      "name": "彭城",
+      "province": "徐州",
+      "region": "青徐",
+      "longitude": 117.18,
+      "latitude": 34.26,
+      "aliases": [
+        "彭城国"
+      ],
+      "labelSide": "left",
+      "labelDy": 16,
+      "adjacent": [
+        "qiao",
+        "shouchun",
+        "xiaopei",
+        "xuzhou"
+      ]
+    },
+    {
+      "id": "xuzhou",
+      "name": "下邳",
+      "province": "徐州",
+      "region": "青徐",
+      "longitude": 117.91,
+      "latitude": 34.18,
+      "aliases": [
+        "徐州",
+        "下邳国",
+        "古邳"
+      ],
+      "labelSide": "right",
+      "labelDy": 8,
+      "adjacent": [
+        "guangling",
+        "langya",
+        "pengcheng",
+        "shouchun",
+        "xiaopei"
+      ]
+    },
+    {
+      "id": "shouchun",
+      "name": "寿春",
+      "province": "扬州",
+      "region": "江淮",
+      "longitude": 116.78,
+      "latitude": 32.58,
+      "aliases": [
+        "寿春县",
+        "寿县"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "guangling",
+        "jianye",
+        "lujiang",
+        "pengcheng",
+        "qiao",
+        "runan",
+        "xuzhou"
+      ]
+    },
+    {
+      "id": "guangling",
+      "name": "广陵",
+      "province": "徐州",
+      "region": "江淮",
+      "longitude": 119.43,
+      "latitude": 32.4,
+      "aliases": [
+        "广陵郡"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "jianye",
+        "shouchun",
+        "wu",
+        "xuzhou"
+      ]
+    },
+    {
+      "id": "lujiang",
+      "name": "庐江",
+      "province": "扬州",
+      "region": "江淮",
+      "longitude": 116.58,
+      "latitude": 30.63,
+      "aliases": [
+        "皖",
+        "皖城"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "chaisang",
+        "jiangxia",
+        "jianye",
+        "shouchun"
+      ]
+    },
+    {
+      "id": "jianye",
+      "name": "建业",
+      "province": "扬州",
+      "region": "江东",
+      "longitude": 118.78,
+      "latitude": 32.06,
+      "aliases": [
+        "建邺",
+        "秣陵"
+      ],
+      "labelSide": "left",
+      "labelDy": 13,
+      "adjacent": [
+        "guangling",
+        "lujiang",
+        "shouchun",
+        "wu",
+        "yuzhang"
+      ]
+    },
+    {
+      "id": "wu",
+      "name": "吴",
+      "province": "扬州",
+      "region": "江东",
+      "longitude": 120.58,
+      "latitude": 31.3,
+      "aliases": [
+        "吴郡",
+        "吴县"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "guangling",
+        "jianye",
+        "kuaiji"
+      ]
+    },
+    {
+      "id": "kuaiji",
+      "name": "会稽",
+      "province": "扬州",
+      "region": "江东",
+      "longitude": 120.58,
+      "latitude": 30,
+      "aliases": [
+        "山阴"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "jianan",
+        "wu"
+      ]
+    },
+    {
+      "id": "yuzhang",
+      "name": "豫章",
+      "province": "扬州",
+      "region": "江东",
+      "longitude": 115.89,
+      "latitude": 28.68,
+      "aliases": [
+        "南昌"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "chaisang",
+        "jianan",
+        "jianye",
+        "luling"
+      ]
+    },
+    {
+      "id": "jianan",
+      "name": "建安",
+      "province": "扬州",
+      "region": "江东",
+      "longitude": 118.32,
+      "latitude": 27.05,
+      "aliases": [
+        "建安郡",
+        "建瓯"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "kuaiji",
+        "luling",
+        "yuzhang"
+      ]
+    },
+    {
+      "id": "luling",
+      "name": "庐陵",
+      "province": "扬州",
+      "region": "江东",
+      "longitude": 114.99,
+      "latitude": 27.11,
+      "aliases": [
+        "庐陵郡",
+        "吉安"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "guiyang",
+        "jianan",
+        "nanhai",
+        "yuzhang"
+      ]
+    },
+    {
+      "id": "wan",
+      "name": "宛",
+      "province": "荆州",
+      "region": "荆襄",
+      "longitude": 112.53,
+      "latitude": 33,
+      "aliases": [
+        "南阳",
+        "宛城"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "hongnong",
+        "luoyang",
+        "shangyong",
+        "xinye",
+        "xuchang"
+      ]
+    },
+    {
+      "id": "xinye",
+      "name": "新野",
+      "province": "荆州",
+      "region": "荆襄",
+      "longitude": 112.36,
+      "latitude": 32.52,
+      "aliases": [
+        "新野县"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "runan",
+        "wan",
+        "xiangyang"
+      ]
+    },
+    {
+      "id": "xiangyang",
+      "name": "襄阳",
+      "province": "荆州",
+      "region": "荆襄",
+      "longitude": 112.15,
+      "latitude": 32.01,
+      "aliases": [
+        "襄阳郡"
+      ],
+      "labelSide": "left",
+      "labelDy": 13,
+      "adjacent": [
+        "jiangling",
+        "jiangxia",
+        "shangyong",
+        "xinye"
+      ]
+    },
+    {
+      "id": "shangyong",
+      "name": "上庸",
+      "province": "荆州",
+      "region": "荆襄",
+      "longitude": 110.23,
+      "latitude": 32.22,
+      "aliases": [
+        "上庸郡"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "hanzhong",
+        "wan",
+        "xiangyang",
+        "yongan"
+      ]
+    },
+    {
+      "id": "jiangxia",
+      "name": "江夏",
+      "province": "荆州",
+      "region": "荆襄",
+      "longitude": 114.42,
+      "latitude": 30.88,
+      "aliases": [
+        "西陵",
+        "夏口"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "chaisang",
+        "changsha",
+        "jiangling",
+        "lujiang",
+        "runan",
+        "xiangyang"
+      ]
+    },
+    {
+      "id": "jiangling",
+      "name": "江陵",
+      "province": "荆州",
+      "region": "荆襄",
+      "longitude": 112.19,
+      "latitude": 30.35,
+      "aliases": [
+        "南郡"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "changsha",
+        "jiangxia",
+        "wuling",
+        "xiangyang",
+        "yongan"
+      ]
+    },
+    {
+      "id": "wuling",
+      "name": "武陵",
+      "province": "荆州",
+      "region": "荆南",
+      "longitude": 111.69,
+      "latitude": 29.04,
+      "aliases": [
+        "临沅"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "changsha",
+        "jiangling",
+        "lingling",
+        "zangke"
+      ]
+    },
+    {
+      "id": "changsha",
+      "name": "长沙",
+      "province": "荆州",
+      "region": "荆南",
+      "longitude": 112.98,
+      "latitude": 28.2,
+      "aliases": [
+        "临湘"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "chaisang",
+        "guiyang",
+        "jiangling",
+        "jiangxia",
+        "lingling",
+        "wuling"
+      ]
+    },
+    {
+      "id": "guiyang",
+      "name": "桂阳",
+      "province": "荆州",
+      "region": "荆南",
+      "longitude": 113.02,
+      "latitude": 25.78,
+      "aliases": [
+        "郴"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "changsha",
+        "lingling",
+        "luling",
+        "nanhai"
+      ]
+    },
+    {
+      "id": "lingling",
+      "name": "零陵",
+      "province": "荆州",
+      "region": "荆南",
+      "longitude": 111.61,
+      "latitude": 26.22,
+      "aliases": [
+        "泉陵"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "cangwu",
+        "changsha",
+        "guiyang",
+        "wuling",
+        "yulin"
+      ]
+    },
+    {
+      "id": "wudu",
+      "name": "武都",
+      "province": "益州",
+      "region": "巴蜀",
+      "longitude": 105.73,
+      "latitude": 33.74,
+      "aliases": [
+        "下辨"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "hanzhong",
+        "longxi",
+        "tianshui",
+        "zitong"
+      ]
+    },
+    {
+      "id": "hanzhong",
+      "name": "汉中",
+      "province": "益州",
+      "region": "巴蜀",
+      "longitude": 107.03,
+      "latitude": 33.07,
+      "aliases": [
+        "南郑"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "changan",
+        "shangyong",
+        "wudu",
+        "zitong"
+      ]
+    },
+    {
+      "id": "zitong",
+      "name": "梓潼",
+      "province": "益州",
+      "region": "巴蜀",
+      "longitude": 105.16,
+      "latitude": 31.64,
+      "aliases": [
+        "梓潼郡"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "chengdu",
+        "hanzhong",
+        "jiangzhou",
+        "wudu"
+      ]
+    },
+    {
+      "id": "chengdu",
+      "name": "成都",
+      "province": "益州",
+      "region": "巴蜀",
+      "longitude": 104.07,
+      "latitude": 30.67,
+      "aliases": [
+        "蜀郡"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "jiangzhou",
+        "yuexi",
+        "zitong"
+      ]
+    },
+    {
+      "id": "jiangzhou",
+      "name": "江州",
+      "province": "益州",
+      "region": "巴蜀",
+      "longitude": 106.58,
+      "latitude": 29.56,
+      "aliases": [
+        "巴郡"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "chengdu",
+        "yongan",
+        "zangke",
+        "zitong"
+      ]
+    },
+    {
+      "id": "yongan",
+      "name": "永安",
+      "province": "益州",
+      "region": "巴蜀",
+      "longitude": 109.5,
+      "latitude": 31.04,
+      "aliases": [
+        "鱼复",
+        "白帝城"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "jiangling",
+        "jiangzhou",
+        "shangyong"
+      ]
+    },
+    {
+      "id": "yuexi",
+      "name": "越巂",
+      "province": "益州",
+      "region": "南中",
+      "longitude": 102.27,
+      "latitude": 27.9,
+      "aliases": [
+        "越嶲",
+        "邛都"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "chengdu",
+        "jianning",
+        "yunnan"
+      ]
+    },
+    {
+      "id": "zangke",
+      "name": "牂牁",
+      "province": "益州",
+      "region": "南中",
+      "longitude": 106.25,
+      "latitude": 26.45,
+      "aliases": [
+        "牂柯",
+        "且兰"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "jiangzhou",
+        "jianning",
+        "wuling",
+        "yulin"
+      ]
+    },
+    {
+      "id": "jianning",
+      "name": "建宁",
+      "province": "益州",
+      "region": "南中",
+      "longitude": 103.8,
+      "latitude": 25.55,
+      "aliases": [
+        "建宁郡",
+        "味县"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "yuexi",
+        "yunnan",
+        "zangke"
+      ]
+    },
+    {
+      "id": "yongchang",
+      "name": "永昌",
+      "province": "益州",
+      "region": "南中",
+      "longitude": 99.17,
+      "latitude": 25.11,
+      "aliases": [
+        "不韦"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "yunnan"
+      ]
+    },
+    {
+      "id": "yunnan",
+      "name": "云南",
+      "province": "益州",
+      "region": "南中",
+      "longitude": 100.78,
+      "latitude": 25.48,
+      "aliases": [
+        "云南郡",
+        "云南驿"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "jianning",
+        "yongchang",
+        "yuexi"
+      ]
+    },
+    {
+      "id": "nanhai",
+      "name": "南海",
+      "province": "交州",
+      "region": "岭南",
+      "longitude": 113.27,
+      "latitude": 23.13,
+      "aliases": [
+        "番禺"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "cangwu",
+        "guiyang",
+        "luling"
+      ]
+    },
+    {
+      "id": "cangwu",
+      "name": "苍梧",
+      "province": "交州",
+      "region": "岭南",
+      "longitude": 111.3,
+      "latitude": 23.48,
+      "aliases": [
+        "广信"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "lingling",
+        "nanhai",
+        "yulin"
+      ]
+    },
+    {
+      "id": "yulin",
+      "name": "郁林",
+      "province": "交州",
+      "region": "岭南",
+      "longitude": 109.61,
+      "latitude": 23.1,
+      "aliases": [
+        "鬱林",
+        "布山"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "cangwu",
+        "hepu",
+        "lingling",
+        "zangke"
+      ]
+    },
+    {
+      "id": "hepu",
+      "name": "合浦",
+      "province": "交州",
+      "region": "岭南",
+      "longitude": 109.2,
+      "latitude": 21.66,
+      "aliases": [
+        "合浦郡"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "jiaozhi",
+        "yulin"
+      ]
+    },
+    {
+      "id": "jiaozhi",
+      "name": "交趾",
+      "province": "交州",
+      "region": "岭南",
+      "longitude": 106.07,
+      "latitude": 21.04,
+      "aliases": [
+        "交阯",
+        "龙编"
+      ],
+      "labelSide": "left",
+      "labelDy": -9,
+      "adjacent": [
+        "hepu"
+      ]
+    },
+    {
+      "id": "chaisang",
+      "name": "柴桑",
+      "province": "扬州",
+      "region": "江东",
+      "longitude": 115.92,
+      "latitude": 29.7,
+      "aliases": [
+        "柴桑县",
+        "九江"
+      ],
+      "labelSide": "right",
+      "labelDy": -9,
+      "adjacent": [
+        "changsha",
+        "jiangxia",
+        "lujiang",
+        "yuzhang"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "title": "光荣特库摩《三国志13》官方介绍",
+      "url": "https://www.gamecity.ne.jp/sangokushi13/concept.html",
+      "note": "确认 60 座地方都市的设计范围。本图以系列通行城市名为玩法据点，不复刻某一代版图。"
+    },
+    {
+      "title": "《三国志13》60 城名单",
+      "url": "https://games.sina.cn/gn/sg/2015-10-14/detail-ifxirwnr7010941.d.html",
+      "note": "60 城基础名单，并与已发售游戏攻略表交叉核对；另补入柴桑、云南及河西、河北、岭南等 21 个地理衔接据点，共 81 城。"
+    },
+    {
+      "title": "《三国志13》都市资料对照",
+      "url": "https://sangokushi13.shiyo.info/toshi.html",
+      "note": "用于交叉核对基础城名；不使用其数值、图片或文字作为游戏资产。"
+    },
+    {
+      "title": "《三国志11》都市一览",
+      "url": "https://gl.ali213.net/html/2006/5811.html",
+      "note": "核对 42 座系列常见城市，特别补齐十三代未列为城市的柴桑和云南。"
+    },
+    {
+      "title": "复旦大学／哈佛大学 CHGIS：右北平郡",
+      "url": "https://tgaz.fudan.edu.cn/tgaz/placename/hvd_87632",
+      "note": "核查北平位于唐山丰润一带的土垠，非现代北京。坐标仅取近似范围；全图不是古城址精确定位或同一年份行政区划。"
+    },
+    {
+      "title": "南京博物院 2021 年年刊：下邳故城遗址",
+      "url": "https://www.njmuseum.org.cn/files/nb/news/files/2022/01/28/98950c9ed92f34dcc7e9a0fb0a821f67.pdf",
+      "note": "核查下邳位于睢宁县古邳镇附近；旧存档 xuzhou 标识保留，显示名改为下邳；小沛独立设于沛县附近。"
+    },
+    {
+      "title": "地图云：中国历史地名／北海国",
+      "url": "https://cloud.chinamap.com/toponym/list?id=1892368606205943811&moudleDesc=%E4%B8%AD%E5%9B%BD%E5%8E%86%E5%8F%B2%E5%9C%B0%E5%90%8D",
+      "note": "核查北海为山东昌乐、寿光、潍坊一带，非广西北海。郡治存在迁移，本图统一为玩法近似点。"
+    },
+    {
+      "title": "贵州省政协文史资料：牂牁郡范围",
+      "url": "https://gzszx.gov.cn/wstd/wsmb/33759.shtml",
+      "note": "牂牁采用贵州中部近似点，郡治位置和迁移尚有不同说法。其余经纬度按常见古今地名对应手工近似，邻接表示简化陆路与河渡交通，不是精确古道。"
+    }
+  ]
+}
+

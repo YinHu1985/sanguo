@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 400" role="img" aria-labelledby="title">
+  <title id="title">武将头像占位图</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#627565"/><stop offset="1" stop-color="#1e342b"/></linearGradient>
+    <radialGradient id="halo"><stop stop-color="#d7c28b" stop-opacity=".65"/><stop offset="1" stop-color="#d7c28b" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="320" height="400" fill="url(#bg)"/>
+  <circle cx="160" cy="145" r="125" fill="url(#halo)"/>
+  <path d="M77 389c10-86 35-129 83-129s74 43 84 129Z" fill="#172820"/>
+  <path d="M113 246c-19-22-24-59-19-91 4-28 12-58 27-75 10-12 28-20 39-20 14 0 32 8 43 22 14 17 22 48 24 76 3 35-3 66-21 88-14 17-29 27-46 27s-33-10-47-27Z" fill="#d5b17f"/>
+  <path d="M103 114c8-38 23-62 57-62s52 24 59 62l-18-16-19 11-22-18-23 18-18-11Z" fill="#252c27"/>
+  <path d="M91 83h138l-15-30-38-12-16-28-16 28-38 12Z" fill="#753c31" stroke="#d8c28d" stroke-width="6"/>
+  <path d="M112 155q20-15 40 0m16 0q20-15 40 0M143 210q17 12 34 0" fill="none" stroke="#3b2922" stroke-width="7" stroke-linecap="round"/>
+  <path d="M160 158v39l-14 6" fill="none" stroke="#9e754f" stroke-width="5"/>
+  <path d="m93 298 67 31 67-31 29 91H64Z" fill="#824536" stroke="#c7ab74" stroke-width="5"/>
+</svg>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="12" viewBox="0 0 96 12" fill="none">
+  <title>青铜回纹细饰带</title>
+  <desc>原创透明横向无缝饰带，建议原尺寸水平重复，用于标题与正文分界。</desc>
+  <path d="M0 1h96M0 11h96" stroke="#b7a06e" stroke-opacity=".28" stroke-width=".7"/>
+  <path d="M0 8h7V4h11v4h-6V6m6 2h14m0 0h7V4h11v4h-6V6m6 2h14m0 0h7V4h11v4h-6V6m6 2h14" stroke="#b7a06e" stroke-opacity=".46" stroke-width=".8" stroke-linejoin="miter"/>
+  <path d="M25 5h2m30 0h2m30 0h2" stroke="#dfcca0" stroke-opacity=".35" stroke-width=".75"/>
+</svg>

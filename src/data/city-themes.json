@@ -1,0 +1,47 @@
+{
+  "themes": {
+    "central": {
+      "name": "中原城郭",
+      "image": "./assets/cities/central.png",
+      "description": "沃野麦田与商旅古道环绕城郭，呈现中原腹地的农桑与市井。"
+    },
+    "north": {
+      "name": "北地雄关",
+      "image": "./assets/cities/north.png",
+      "description": "苍山寒川、疏林旷野间的北方城塞，城墙沉稳，屋舍朴厚。"
+    },
+    "northwest": {
+      "name": "西北边城",
+      "image": "./assets/cities/northwest.png",
+      "description": "赭土城垣、绿洲水渠与远山相望，驼队行经河西与凉州的商道。"
+    },
+    "jiangnan": {
+      "name": "江南水城",
+      "image": "./assets/cities/jiangnan.png",
+      "description": "江流港埠、稻田舟楫与灰瓦院落交织，描绘南方水乡城邑。"
+    },
+    "southwest": {
+      "name": "西南山城",
+      "image": "./assets/cities/southwest.png",
+      "description": "青山层叠、竹林溪河环抱山城，田畴与驿道延伸在蜀地河谷。"
+    }
+  },
+  "regionThemes": {
+    "中原": "central",
+    "河东": "central",
+    "关中": "central",
+    "北地": "north",
+    "河北": "north",
+    "辽东": "north",
+    "青徐": "central",
+    "河西": "northwest",
+    "西北": "northwest",
+    "江淮": "jiangnan",
+    "江东": "jiangnan",
+    "荆襄": "jiangnan",
+    "荆南": "jiangnan",
+    "巴蜀": "southwest",
+    "南中": "southwest",
+    "岭南": "jiangnan"
+  }
+}

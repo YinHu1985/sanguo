@@ -1,0 +1,41 @@
+/* File-based faces are loaded from the game, never from an OS installation. */
+@font-face {
+  font-family: "Sanguo Hei";
+  src: url("../assets/fonts/SourceHanSansCN-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Sanguo Lishu";
+  src: url("../assets/fonts/AlimamaDaoLiTi-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Missing rare title glyphs also use a bundled face, before OS fallbacks. */
+:root {
+  --sans: "Sanguo Hei", "PingFang SC", "Hiragino Sans GB", "Heiti SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  --display: "Sanguo Lishu", "Sanguo Hei", sans-serif;
+  --serif: var(--display);
+}
+
+body, button, input, select, textarea, table { font-family: var(--sans); }
+
+/* Body copy and statistics must not inherit decorative heading faces. */
+.story-text, .story-progress, .story-portrait-label, .story-continue,
+.resource-row strong, .resource-row span, .battle-clock strong,
+.task-ledger-summary strong, .merchant-quote strong, .city-overview-stats strong,
+.unit-readout, .ambush-damage, .event-item time, .transport-route,
+.data-table .text-button, .city-node .node-label, .city-list-copy strong,
+.menu-subtitle, .field-log-window summary, .siege-log-window summary,
+.city-trade-button, .command-button strong, .battle-action strong,
+.command-entry strong, .modal-footer .btn {
+  font-family: var(--sans);
+}
+
+.resource-row strong, .battle-clock strong, .task-ledger-summary strong,
+.merchant-quote strong, .city-overview-stats strong, .unit-readout,
+.data-table, .command-block { font-variant-numeric: tabular-nums; }

@@ -1,0 +1,269 @@
+{
+  "version": 2,
+  "commandsPerMonth": 6,
+  "maxDomesticOfficers": 3,
+  "battleDayLimit": 30,
+  "trainingCap": 100,
+  "moraleCap": 100,
+  "army": {
+    "maxUnits": 5,
+    "maxOfficersPerUnit": 5,
+    "uncommandedCapacity": 2000
+  },
+  "tasks": {
+    "defaultTiming": "turn_end",
+    "actions": {}
+  },
+  "economy": {
+    "foodPerThousandPerMonth": 120,
+    "foodPerThousandPerDay": 4,
+    "harvestMonth": 7,
+    "grainPerGoldByMonth": [
+      7,
+      7,
+      6,
+      6,
+      5,
+      5,
+      10,
+      10,
+      9,
+      9,
+      8,
+      8
+    ],
+    "monthlyGoldBase": 170,
+    "monthlyGoldPerCommerce": 13,
+    "annualFoodBase": 3200,
+    "annualFoodPerAgriculture": 248,
+    "supportBase": 0.55,
+    "supportDivisor": 220,
+    "maxStarvationLossRate": 0.12,
+    "maxUnpaidLoyaltyLoss": 10,
+    "salaryByRank": {
+      "君主": 120,
+      "军师": 90,
+      "大将": 100,
+      "中郎将": 70,
+      "校尉": 50,
+      "从事": 40
+    }
+  },
+  "actions": {
+    "appointGovernor": 20,
+    "transfer": 40,
+    "officerTransfer": 30,
+    "march": 100
+  },
+  "battle": {
+    "field": {
+      "movementScale": 0.5,
+      "attackCostScale": 0.5,
+      "minActionPoints": 2,
+      "maxActionPoints": 5,
+      "visionBonus": 1,
+      "cautiousMoveMultiplier": 3,
+      "ambushTerrains": ["forest", "hill"],
+      "concealmentTerrains": ["forest", "hill"],
+      "sightBlockingTerrains": ["forest", "hill"],
+      "concealmentSightLimit": 1
+    },
+    "strategyGoldCosts": {
+      "fire": 50
+    },
+    "siege": {
+      "effectiveTroopCaps": {
+        "1": 20000,
+        "2": 35000,
+        "3": 50000
+      },
+      "layerHp": 100,
+      "baseProgressPerThousand": 1.3,
+      "defenseProgressPenalty": 0.006,
+      "minimumProgressMultiplier": 0.25,
+      "attackerLossRate": 0.018,
+      "defenderLossRate": 0.012,
+      "encirclementMultiplier": 1.25,
+      "deceiveChanceBase": 0.35,
+      "deceiveIntelligenceScale": 200,
+      "deceiveProgress": 25,
+      "deceiveDefenseDamage": 10,
+      "interceptLossRate": 0.07,
+      "interceptCounterRate": 0.025,
+      "encircledRetreatLossRate": 0.12,
+      "strategyChanceBase": 0.5,
+      "intelligenceChanceScale": 200,
+      "minimumStrategyChance": 0.1,
+      "maximumStrategyChance": 0.9,
+      "interceptionAbilityBase": 0.5,
+      "interceptionWarWeight": 0.5,
+      "interceptionLeadershipWeight": 0.5,
+      "interceptionAbilityDivisor": 100,
+      "minimumCombatRatio": 0.5,
+      "maximumCombatRatio": 2,
+      "qualityBase": 0.6,
+      "qualityLeadershipDivisor": 250,
+      "qualityTrainingDivisor": 250,
+      "qualityMoraleDivisor": 250,
+      "aiDeceiveIntelligenceAdvantage": 10,
+      "aiTunnelDefenseThreshold": 60,
+      "aiTunnelIntelligenceThreshold": 75,
+      "aiAssaultTroopRatio": 1.5,
+      "aiRetreatTroopRatio": 0.35,
+      "aiRotateMoraleThreshold": 60,
+      "aiRepairDefenseThreshold": 55,
+      "aiSortieTroopRatio": 1.3,
+      "strategyOutcomes": {
+        "tunnel": {
+          "success": {
+            "progress": 1.8,
+            "attackerLoss": 0.8,
+            "defenderLoss": 1.5
+          },
+          "failure": {
+            "progress": 0.2,
+            "attackerLoss": 1.5,
+            "defenderLoss": 0.4
+          }
+        },
+        "sortie": {
+          "success": {
+            "progress": 0.4,
+            "attackerLoss": 1.6,
+            "defenderLoss": 0.6
+          },
+          "failure": {
+            "progress": 1.1,
+            "attackerLoss": 0.4,
+            "defenderLoss": 1.8
+          }
+        }
+      },
+      "attackCommands": {
+        "ram": {
+          "progress": 1.1,
+          "attackerLoss": 1,
+          "defenderLoss": 0.8,
+          "defenseDamage": 2,
+          "morale": 0
+        },
+        "assault": {
+          "progress": 1.65,
+          "attackerLoss": 1.5,
+          "defenderLoss": 1.4,
+          "defenseDamage": 1.5,
+          "morale": -2
+        },
+        "tunnel": {
+          "progress": 0.85,
+          "attackerLoss": 0.65,
+          "defenderLoss": 0.65,
+          "defenseDamage": 3,
+          "morale": 0
+        }
+      },
+      "defenseCommands": {
+        "rotate": {
+          "attackerLoss": 1,
+          "defenderLoss": 0.8,
+          "progress": 0.95,
+          "repair": 0,
+          "morale": 3
+        },
+        "repair": {
+          "attackerLoss": 0.75,
+          "defenderLoss": 1.1,
+          "progress": 1,
+          "repair": 3,
+          "wallRepair": 5,
+          "morale": 0
+        },
+        "sortie": {
+          "attackerLoss": 1.45,
+          "defenderLoss": 1.5,
+          "progress": 0.85,
+          "repair": 0,
+          "morale": -2
+        }
+      }
+    }
+  },
+  "personnel": {
+    "searchCost": 100,
+    "employCost": 200
+  },
+  "diplomacy": {
+    "goodwillCost": 300,
+    "allianceCost": 600
+  },
+  "campaign": {
+    "warsPerMonth": 4
+  },
+  "development": {
+    "agriculture": {
+      "base": 5,
+      "stat": "politics",
+      "expense": 80
+    },
+    "commerce": {
+      "base": 5,
+      "stat": "politics",
+      "expense": 80
+    },
+    "patrol": {
+      "base": 4,
+      "stat": "charm",
+      "expense": 60
+    },
+    "train": {
+      "base": 5,
+      "stat": "leadership",
+      "expense": 50
+    },
+    "buildWall": {
+      "base": 8,
+      "stat": "politics",
+      "expense": 100
+    }
+  },
+  "recruit": {
+    "goldPerHundred": 18,
+    "foodPerHundred": 12,
+    "popularSupportPenaltyPerThousand": 1
+  },
+  "ranks": {
+    "君主": 6000,
+    "军师": 3500,
+    "大将": 5000,
+    "中郎将": 4000,
+    "校尉": 3000,
+    "从事": 2200
+  },
+  "terrain": {
+    "plain": {
+      "name": "平原",
+      "move": 1,
+      "defense": 0
+    },
+    "forest": {
+      "name": "树林",
+      "move": 2,
+      "defense": 12
+    },
+    "hill": {
+      "name": "山地",
+      "move": 3,
+      "defense": 18
+    },
+    "river": {
+      "name": "河流",
+      "move": 3,
+      "defense": 0
+    },
+    "fort": {
+      "name": "城寨",
+      "move": 2,
+      "defense": 24
+    }
+  }
+}

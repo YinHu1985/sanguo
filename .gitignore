@@ -1,0 +1,40 @@
+# Rebuildable output and installed dependencies
+/dist/
+node_modules/
+/coverage/
+/.nyc_output/
+/test-results/
+/playwright-report/
+
+# Local screenshots / verification output; keep reusable QA page sources
+/artifacts/*
+!/artifacts/*.html
+
+# Local tooling metadata and caches
+/.openai/
+/.cache/
+__pycache__/
+*.py[cod]
+
+# Private environment configuration (keep shareable examples)
+.env
+.env.*
+!.env.example
+!.env.*.example
+!.env.sample
+!.env.template
+
+# Logs and editor temporary files
+*.log
+*.swp
+*.swo
+*~
+
+# macOS / Windows metadata
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+
+# Keep src/assets/ (including fonts, audio, images and license notices),
+# scripts/, tests/ and dependency lockfiles under version control.

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="96" viewBox="0 0 128 96" fill="none">
+  <title>青灰回云锦纹</title>
+  <desc>原创低对比平铺纹样，128×96 像素；用于浮窗深色标题和边框。</desc>
+  <defs>
+    <g id="cloud" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M-43 8h11c-5-2-6-6-3-9 3-4 8-3 11-1-2-7 3-13 10-12 5 0 9 4 10 8 3-6 9-9 15-6 4 2 6 6 5 10 5-3 11-1 12 3 1 4-2 7-6 7h21" stroke="#b7a477" stroke-opacity=".18" stroke-width=".8"/>
+      <path d="M-34 12h17c7 0 10-4 8-8-2-4-7-3-8 0-1 3 2 4 4 3M-2 12h16c5 0 8-3 7-6-1-4-7-5-9-1-1 2 0 4 3 4M-7-7c-2-3-6-4-9-2-3 2-3 5-1 7" stroke="#b7a477" stroke-opacity=".13" stroke-width=".7"/>
+      <path d="M-27 16h21m7 0h24M-1-16v-2m0 38v2" stroke="#d5c39b" stroke-opacity=".09" stroke-width=".7"/>
+    </g>
+  </defs>
+  <path fill="#243a3c" d="M0 0h128v96H0z"/>
+  <path d="M0 0h128M0 48h128" stroke="#0f2024" stroke-opacity=".12" stroke-width=".6"/>
+  <use href="#cloud" x="64" y="23"/>
+  <use href="#cloud" x="0" y="71"/>
+  <use href="#cloud" x="128" y="71"/>
+  <path d="m0 20 2 3-2 3m128-6-2 3 2 3M62 71l2-3 2 3-2 3z" stroke="#b7a477" stroke-opacity=".11" stroke-width=".7"/>
+</svg>

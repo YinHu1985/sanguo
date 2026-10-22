@@ -1,0 +1,22 @@
+<!doctype html><meta charset="utf-8"><title>主菜单与月初结算验收</title>
+<h1>本地独立验收</h1><p>仅写入 4174 的验收存档，不影响 4173。</p>
+<button id="prepare-month">准备上月开发任务与月结检查点</button><pre id="status"></pre>
+<script type="module">
+import { createInitialState, saveState } from '../dist/js/game/state.js';
+import { applyAtlasToScenario } from '../dist/js/game/atlas.js';
+import { queueTask } from '../dist/js/game/tasks.js';
+import { beginTurnResolution } from '../dist/js/game/turn-flow.js';
+if(location.port!=='4174') throw new Error('只允许在独立验收端口使用');
+const [raw,rules,atlas]=await Promise.all(['scenario','rules','strategic-atlas'].map(async name=>(await fetch(`../dist/data/${name}.json`)).json()));
+document.querySelector('button').addEventListener('click',()=>{
+ try {
+  const state=createInitialState(applyAtlasToScenario(raw,atlas),rules);
+  Object.assign(state,{started:true,playerFactionId:'cao-cao',selectedCityId:'xuchang',lastTurnOpening:`${state.year}-${state.month}`});
+  const city=state.cities.find(city=>city.id==='xuchang'); city.gold=10000;city.food=100000;
+  const officer=state.officers.find(officer=>city.officerIds.includes(officer.id)&&officer.status==='active');
+  const result=queueTask(state,{kind:'domestic',cityId:city.id,officerIds:[officer.id],payload:{action:'agriculture'}},rules);
+  if(!result.ok) throw new Error(result.message);
+  beginTurnResolution(state);saveState(state);location.href='../dist/?qa=experience';
+ }catch(error){document.querySelector('#status').textContent=error.stack;}
+});
+</script>

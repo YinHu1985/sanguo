@@ -1,0 +1,40 @@
+<!doctype html><meta charset="utf-8"><title>战役系统验收</title>
+<h1>独立战役系统验收</h1><p>仅在 4174 端口写入验收存档，不影响正式 4173 存档。</p>
+<button data-case="strategy">编组与筑墙验收</button><button data-case="attack">五支多将部队出征验收</button><button data-case="defense">野战与守城入口验收</button>
+<pre id="status"></pre>
+<script type="module">
+import { createInitialState, saveState } from '../dist/js/game/state.js';
+import { applyAtlasToScenario } from '../dist/js/game/atlas.js';
+import { queueTask, settleTasks } from '../dist/js/game/tasks.js';
+import { beginTurnResolution } from '../dist/js/game/turn-flow.js';
+if(location.port!=='4174') throw new Error('仅供 4174 独立验收');
+const [raw,rules,atlas]=await Promise.all(['scenario','rules','strategic-atlas'].map(async name=>(await fetch(`../dist/data/${name}.json`)).json()));
+const scenario=applyAtlasToScenario(raw,atlas);
+document.querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>{
+ try {
+  const state=createInitialState(scenario,rules);
+  Object.assign(state,{started:true,playerFactionId:'cao-cao',selectedCityId:'xuchang',lastTurnOpening:'196-11'});
+  const home=state.cities.find(city=>city.id==='xuchang'), foe=state.cities.find(city=>city.id==='wan');
+  const gathered=state.officers.filter(officer=>officer.factionId==='cao-cao'&&officer.status==='active').slice(0,25);
+  for(const officer of gathered){for(const city of state.cities){city.officerIds=city.officerIds.filter(id=>id!==officer.id);if(city.governorId===officer.id)city.governorId=null;}home.officerIds.push(officer.id);officer.locationCityId=home.id;}
+  home.governorId='cao-cao'; home.troops=100000;home.food=200000;home.gold=100000;home.wallLevel=3;home.defense=100;
+  foe.troops=12000;foe.food=100000;foe.gold=3000;foe.wallLevel=2;foe.defense=80;
+  if(button.dataset.case==='strategy'){home.wallLevel=2;home.defense=65;}
+  const divisions=Array.from({length:5},(_,index)=>({id:`qa-${index}`,name:`第${index+1}部队`,officerIds:gathered.slice(index*5,index*5+5).map(officer=>officer.id),troops:5000,unitType:'cavalry'}));
+  if(button.dataset.case==='attack'){
+   const order=queueTask(state,{kind:'march',cityId:home.id,officerIds:divisions.flatMap(unit=>unit.officerIds),payload:{targetId:foe.id,divisions,supplies:{food:15000,gold:500}}},rules);
+   if(!order.ok)throw new Error(order.message);
+   beginTurnResolution(state); const report=settleTasks(state,rules,{targetTurn:1});if(!report.ok)throw new Error(report.message);
+  }
+  if(button.dataset.case==='defense'){
+   home.troops=30000;
+   state.elapsedMonths=1;state.month=12;state.turnResolution={stage:'invasions',targetTurn:1};
+   const ids=foe.officerIds.slice(0,3), troops=10000,food=10000,gold=500;
+   foe.troops-=troops;foe.food-=food;foe.gold-=gold+rules.actions.march;
+   state.pendingInvasions=[{id:'qa-new-defense',sourceId:foe.id,targetId:home.id,attackerFactionId:foe.factionId,defenderFactionId:home.factionId,
+    officerIds:ids,divisions:[{officerIds:ids,troops,unitType:'cavalry'}],troops,training:foe.training,morale:foe.morale,supplies:{food,gold},resolved:false}];
+  }
+  saveState(state);location.href='../dist/?qa=warfare';
+ }catch(error){document.querySelector('#status').textContent=error.stack;}
+}));
+</script>
