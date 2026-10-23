@@ -33,6 +33,7 @@ const sumResources = (state) => state.cities.reduce((sum, city) => ({ food: sum.
 
 test("real departure, first-day rations, fire and retreat debit each cost exactly once and return the actual cargo", () => {
   const { state, before, battle, source, target } = launch();
+  battle.livingUnits("enemy")[0].position = { x: 1, y: 1 };
   const original = sumResources(before);
   const attackFood = dailyFoodCost(3000, rules);
   const defenseFood = dailyFoodCost(4000, rules);
@@ -57,6 +58,7 @@ test("real departure, first-day rations, fire and retreat debit each cost exactl
 
 test("a real fire victory combines only the captured remainder and attacker remainder, preserving global resource accounting", () => {
   const { state, before, battle, source, target } = launch({ defenderTroops: 500 });
+  battle.livingUnits("enemy")[0].position = { x: 1, y: 1 };
   const original = sumResources(before);
   const fire = battle.fire(battle.livingUnits("enemy")[0].id);
   assert.equal(fire.ok, true);
@@ -98,6 +100,7 @@ test("zero carried grain causes immediate first-day defeat and does not borrow t
 
 test("defender strategy spending is written back from the battlefield wallet on retreat", () => {
   const { state, before, battle, target } = launch();
+  battle.livingUnits("enemy")[0].position = { x: 1, y: 1 };
   assert.equal(battle.wait().ok, true);
   assert.equal(battle.activeUnit.side, "enemy");
   assert.equal(battle.fire(battle.livingUnits("ally")[0].id).ok, true);

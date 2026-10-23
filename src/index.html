@@ -18,6 +18,8 @@
     <link rel="stylesheet" href="./styles/audio.css?v=20261022-15" />
     <link rel="stylesheet" href="./styles/transitions.css?v=20261022-15" />
     <link rel="stylesheet" href="./styles/typography.css?v=20261022-18" />
+    <link rel="stylesheet" href="./styles/military.css?v=20261023-21" />
+    <link rel="stylesheet" href="./styles/war-campaigns.css?v=20261023-23" />
   </head>
   <body>
     <section id="main-menu" class="main-menu" aria-label="游戏主菜单">
@@ -45,8 +47,10 @@
             <h1><span>52</span>三国志</h1>
           </div>
         </div>
+        <button class="btn policy-button" id="policies-button" type="button" aria-haspopup="dialog"><span>策</span><span>全局政策<small>研究 <b id="research-points-label">0</b></small></span></button>
         <div class="topbar-actions">
           <button class="btn btn-quiet" id="tasks-button" type="button">任务簿</button>
+          <button class="btn btn-quiet" id="wars-button" type="button" aria-haspopup="dialog">战役簿</button>
           <button class="btn btn-quiet" id="factions-button" type="button">天下势力</button>
           <button class="btn btn-quiet" id="reports-button" type="button">军府记事</button>
           <button class="btn btn-quiet" id="help-button" type="button">玩法</button>
@@ -146,6 +150,7 @@
                 <div><span>粮</span><strong id="city-food">9,100</strong></div>
                 <div><span>兵</span><strong id="city-troops">10,500</strong></div>
               </div>
+              <div id="city-equipment" class="equipment-stores" aria-label="军备库存"></div>
               <div id="city-economy" class="city-economy"></div>
               <button id="city-trade-button" class="btn city-trade-button" type="button">商人 · 买卖粮食</button>
               <div id="city-metrics" class="metric-list"></div>
@@ -203,13 +208,19 @@
               <div id="battle-tip" class="battle-tip">选择一项军令，再点击高亮地块</div>
             </section>
             <aside class="panel unit-panel">
+              <div class="unit-intelligence" tabindex="0" aria-label="部队与补给详情，可滚动">
               <div id="battle-supplies" class="battle-supplies" aria-live="polite"></div>
               <div id="active-unit-card" class="active-unit-card"></div>
+              </div>
               <div class="battle-actions" id="battle-actions">
                 <button data-mode="move" class="battle-action"><span>走</span><strong>移动</strong><small>按地形消耗行动力</small></button>
                 <button data-mode="cautious" class="battle-action"><span>戒</span><strong>警戒移动</strong><small>高消耗 · 免触发伏击</small></button>
                 <button data-mode="attack" class="battle-action"><span>击</span><strong>攻击</strong><small>消耗 3 行动力</small></button>
+                <button data-mode="shoot" class="battle-action"><span>射</span><strong>射击</strong><small>需要远程兵种</small></button>
+                <button data-mode="fireArrow" class="battle-action"><span>矢</span><strong>火矢</strong><small>概率引燃 · 消耗随军金</small></button>
                 <button data-mode="fire" class="battle-action"><span>火</span><strong>火攻</strong><small>消耗 4 行动力</small></button>
+                <button data-mode="doubt" class="battle-action"><span>疑</span><strong>疑兵</strong><small>邻接施计 · 跳过敌军行动</small></button>
+                <button data-mode="provoke" class="battle-action"><span>诱</span><strong>挑衅</strong><small>邻接施计 · 诱敌追击</small></button>
                 <button data-mode="ambush" class="battle-action"><span>伏</span><strong>埋伏</strong><small>树林／山地 · 结束行动</small></button>
                 <button data-mode="wait" class="battle-action"><span>待</span><strong>结束行动</strong><small>剩余行动力作废</small></button>
                 <button data-mode="return" class="battle-action" hidden><span>城</span><strong>回城据守</strong><small>退出野战，保留兵力参与守城</small></button>
@@ -225,6 +236,6 @@
 
     <div id="modal-root"></div>
     <div id="toast-root" class="toast-root" aria-live="polite"></div>
-    <script type="module" src="./js/app.js?v=20261022-18"></script>
+    <script type="module" src="./js/app.js?v=20261023-23"></script>
   </body>
 </html>

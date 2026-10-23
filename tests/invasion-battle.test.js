@@ -91,6 +91,7 @@ test("creation rejects stale, allied, uncommanded or malformed invasions without
 
 test("a real defensive fire victory writes back city strategy spending and consumes reserved cargo only once", () => {
   const { state, before, battle } = launch({ attackerTroops: 500, defenderTroops: 3000 });
+  battle.livingUnits("ally")[0].position = { x: 1, y: 1 };
   assert.equal(battle.activeUnit.side, "enemy");
   const fire = battle.fire(battle.livingUnits("ally")[0].id);
   assert.equal(fire.ok, true);
@@ -160,6 +161,7 @@ test("defender starvation loses the city; surviving garrison never teleports to 
 
 test("a real attacking fire victory captures actual remaining warehouses and surviving attack troops", () => {
   const { state, before, battle } = launch({ defenderTroops: 500 });
+  battle.livingUnits("enemy")[0].position = { x: 1, y: 1 };
   battle.wait();
   assert.equal(battle.activeUnit.side, "ally");
   assert.equal(battle.fire(battle.livingUnits("enemy")[0].id).ok, true);
@@ -270,6 +272,7 @@ test("invalid outcomes, stale ownership and corrupt stores are rejected atomical
 
 test("grouped invasion and chosen defending formations preserve every real commander without multiplying troops", () => {
   const { state, invasion } = fixture({ attackerTroops: 6000 });
+  state.officers.find((officer) => officer.id === "guard").rank = "大将";
   state.officers.push(person("attacker-aide", "attacker", "origin", { rank: "校尉" }),
     person("defender-aide", "defender", "target", { rank: "校尉" }));
   lookup(state, "origin").officerIds.push("attacker-aide");

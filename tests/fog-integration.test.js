@@ -145,11 +145,12 @@ test("AI orders do not follow enemies hidden in different unobserved locations",
   const actionB = second.runEnemyTurn();
   assert.equal(actionA.ok, true);
   assert.equal(actionB.ok, true);
-  assert.equal(actionA.action, "wait");
-  assert.equal(actionB.action, "wait");
+  assert.equal(actionA.action, "move", "defenders may advance on the public attacker camp without knowing enemy positions");
+  assert.equal(actionB.action, "move");
   assert.equal(actionA.targetId, undefined);
   assert.equal(actionB.targetId, undefined);
   assert.deepEqual(firstDefender.position, secondDefender.position);
+  assert.deepEqual(actionA.step, actionB.step, "hidden enemy positions must not influence the chosen step");
 });
 
 test("concealed orders and opposing daily consumption stay out of player logs, even after later discovery", () => {

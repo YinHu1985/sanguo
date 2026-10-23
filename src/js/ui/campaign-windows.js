@@ -1,15 +1,47 @@
 import { availableOfficers, cityOfficers, getCity, getFaction, getOfficer, playerCities } from "../game/rules.js";
-import { areAllied, getCampaignStatus, getRelation } from "../game/campaign.js";
+import { areAllied, employCandidates, getCampaignStatus, getRelation, previewEmploy } from "../game/campaign.js";
 import { createDefenderFormations } from "../game/army.js";
 import { createArmyComposer } from "./army-composer.js";
+import { equipmentStoresMarkup } from "./equipment-view.js";
 import { queueTask } from "../game/tasks.js";
 import { taskOrderNote } from "./task-windows.js";
 import { createDataTable, escapeHtml as esc, number, openDialog, showToast } from "./components.js";
 import { cityEconomyMarkup } from "./economy-windows.js";
+import { ambushPreparationMarkup } from "./stratagem-windows.js";
 import { dailyFoodCost } from "../game/economy.js";
 
 export function cityTheme(city, manifest) {
   return manifest.themes[manifest.regionThemes[city.region] ?? "central"];
+}
+
+/** Keep eligibility in campaign rules; the window also explains nearby rejected candidates. */
+export function employCandidateRows(state, cityId, rules, executorId) {
+  const city = getCity(state, cityId);
+  if (!city) return [];
+  const eligible = employCandidates(state, cityId, rules);
+  const eligibleIds = new Set(eligible.map((officer) => officer.id));
+  const neighboring = state.officers.filter((officer) => {
+    const origin = getCity(state, officer.locationCityId);
+    return origin && city.adjacent?.includes(origin.id) && officer.factionId === origin.factionId
+      && officer.factionId !== state.playerFactionId && officer.factionId !== "neutral"
+      && origin.officerIds.includes(officer.id) && !["free", "captured"].includes(officer.status)
+      && officer.rank !== "君主" && !state.factions.some((faction) => faction.lord === officer.id);
+  });
+  return [...new Map([...eligible, ...neighboring].map((officer) => [officer.id, officer])).values()].map((officer) => {
+    const origin = getCity(state, officer.locationCityId);
+    const enemyRecruit = !["free", "captured"].includes(officer.status);
+    const available = eligibleIds.has(officer.id);
+    const checked = previewEmploy(state, cityId, executorId, officer.id, rules);
+    return { officer, origin, enemyRecruit, available,
+      kind: enemyRecruit ? "邻城武将" : officer.status === "captured" ? "俘虏" : "在野",
+      condition: available ? enemyRecruit ? `邻接敌城 · 忠诚≤${rules.personnel?.enemyEmployMaxLoyalty ?? 60} · 未执行任务` : "本城已发现 · 可以延请"
+        : checked.message ?? "当前不符合登用条件" };
+  });
+}
+
+export function employPreviewMarkup(preview, rules) {
+  const chance = Number.isFinite(preview?.chance) ? `${Math.round(preview.chance * 100)}%` : "—";
+  return `<strong>礼金 ${number(preview?.cost ?? rules.personnel?.employCost ?? 200)} · 成功率 ${chance}</strong><p class="${preview?.ok ? "economy-note" : "economy-warning"}">${esc(preview?.message || "请选择执行武将与登用对象。")}</p><p>${preview?.enemyRecruit ? "成功后仅该武将转投我方并迁至本城，不带走原城兵力、钱粮或城池。" : "成功后该武将加入本城。"}月末重新校验并判定成败，失败也消耗礼金与行动。</p>`;
 }
 
 // Windows own presentation only. Rules remain callable from any entry point.
@@ -17,13 +49,15 @@ export function createCampaignUI({ getState, scenario, rules, themes, onStart, o
   const state = () => getState();
   const closeWindow = (body) => body.closest(".modal")?.querySelector(".modal-close")?.click();
   const officerOptions = (city) => availableOfficers(state(), city).map((officer) => `<option value="${officer.id}">${esc(officer.name)} · 智 ${officer.intelligence} 魅 ${officer.charm}</option>`).join("");
-  const actionWindow = async (title, body, confirmText, execute, kind) => {
+  const actionWindow = async (title, body, confirmText, execute, kind, refresh) => {
     body.insertAdjacentHTML("beforeend", taskOrderNote(rules, kind));
-    const result = await openDialog({ title, content: body, confirmText, onConfirm: () => {
+    const dialog = openDialog({ title, content: body, confirmText, onConfirm: () => {
       const outcome = execute();
       if (!outcome.ok) { showToast(outcome.message, "error"); return false; }
       return outcome;
     } });
+    refresh?.();
+    const result = await dialog;
     if (result) await onChange(result.message);
     return result;
   };
@@ -83,6 +117,8 @@ export function createCampaignUI({ getState, scenario, rules, themes, onStart, o
     body.innerHTML = `<div class="city-overview-hero"><img src="${theme.image}" alt="${esc(theme.name)}区域城景"><div><span>${esc(city.province)} · ${esc(city.region)}</span><h3>${esc(city.name)}</h3><p>${esc(getFaction(current, city.factionId).name)} · 太守 ${esc(getOfficer(current, city.governorId)?.name ?? "未任命")}</p></div></div>
       <p class="theme-caption">${esc(theme.name)} · ${esc(theme.description)}（区域共用主题画，非单城考据复原）</p>
       <div class="city-overview-stats">${[["金", number(city.gold)], ["粮", number(city.food)], ["驻军", number(city.troops)], ["农业", city.agriculture], ["商业", city.commerce], ["民心", city.popularSupport], ["训练", city.training], ["士气", city.morale], ["城墙等级", city.wallLevel], ["城防度", city.defense], ["扩筑进度", `${city.wallProgress}/100`]].map(([label, value]) => `<div><small>${label}</small><strong>${value}</strong></div>`).join("")}</div>
+      <div class="equipment-stores city-overview-equipment" aria-label="军备库存">${equipmentStoresMarkup(city)}</div>
+      ${ambushPreparationMarkup(city, current)}
       ${cityEconomyMarkup(current, city, rules)}
       ${city.factionId === current.playerFactionId ? '<button type="button" class="btn" data-city-trade>商人 · 买卖粮食</button>' : ""}
       <h3 class="window-section-title">城内武将</h3>`;
@@ -90,7 +126,7 @@ export function createCampaignUI({ getState, scenario, rules, themes, onStart, o
       { label: "姓名", html: true, render: (officer) => `<button class="text-button" data-officer="${officer.id}">${esc(officer.name)}</button>` }, { key: "rank", label: "职位" },
       { key: "war", label: "武" }, { key: "intelligence", label: "智" }, { key: "leadership", label: "统" }, { key: "politics", label: "政" }, { key: "charm", label: "魅" },
       { key: "loyalty", label: "忠诚" }, { label: "月俸", render: (officer) => rules.economy.salaryByRank[officer.rank] ?? 40 },
-      { label: "状态", render: (officer) => officer.taskId ? "执行任务中" : officer.acted ? "已行动" : "待命" }
+      { label: "状态", render: (officer) => officer.battleId ? "跨月作战中" : officer.taskId ? "执行任务中" : officer.acted ? "已行动" : "待命" }
     ], cityOfficers(current, city)));
     const neighbors = document.createElement("div");
     neighbors.className = "city-neighbor-links";
@@ -110,12 +146,36 @@ export function createCampaignUI({ getState, scenario, rules, themes, onStart, o
   }
 
   async function showEmploy(cityId) {
-    const city = getCity(state(), cityId);
-    const candidates = state().officers.filter((officer) => officer.locationCityId === cityId && officer.discovered && (officer.status === "free" || officer.status === "captured" && officer.captorFactionId === state().playerFactionId));
-    if (!candidates.length) return openDialog({ title: `${city.name} · 登用人才`, content: '<p class="modal-description">城内暂无可登用的在野人才或俘虏。可先寻访，或攻城后查看俘获的守将。</p>', confirmText: "返回", hideCancel: true });
+    const current = state();
+    const city = getCity(current, cityId);
+    if (!city || city.factionId !== current.playerFactionId) return showToast("请选择我方登用出发城", "error");
+    const executorId = availableOfficers(current, city)[0]?.id;
+    const rows = employCandidateRows(current, cityId, rules, executorId);
+    if (!rows.length) return openDialog({ title: `${city.name} · 登用人才`, content: '<p class="modal-description">城内暂无已发现的在野人才、俘虏，相邻城池也没有可招揽的非君主武将。可先寻访；对于低忠诚的邻城敌将，也可在此派遣使者登用。</p>', confirmText: "返回", hideCancel: true });
     const body = document.createElement("div");
-    body.innerHTML = `<p class="modal-description">使者的魅力与智力影响成功机会，俘虏较难说服。不论成败均消耗礼金与行动。</p><div class="form-grid"><div class="field"><label>执行武将</label><select data-envoy>${officerOptions(city)}</select></div><div class="field"><label>登用对象</label><select data-target>${candidates.map((officer) => `<option value="${officer.id}">${esc(officer.name)} · ${officer.status === "captured" ? "俘虏" : "在野"}</option>`).join("")}</select></div></div><div class="result-preview">礼金 ${rules.personnel?.employCost ?? 200} · 一道指令。</div>`;
-    await actionWindow(`${city.name} · 登用人才`, body, "登门延请", () => queueTask(state(), { kind: "employ", cityId, officerIds: [body.querySelector("[data-envoy]").value], payload: { targetId: body.querySelector("[data-target]").value } }, rules), "employ");
+    body.innerHTML = `<p class="modal-description">使者的魅力与智力影响成功机会，俘虏较难说服。敌将须在邻接敌城、非君主、忠诚不高于 ${number(rules.personnel?.enemyEmployMaxLoyalty ?? 60)} 且未执行任务；盟友不可招揽，可先用离间降低忠诚。</p><div data-employ-candidates></div><div class="form-grid"><div class="field"><label for="employ-envoy">执行武将</label><select id="employ-envoy" data-envoy>${officerOptions(city) || '<option value="">本城暂无待命武将</option>'}</select></div><div class="field"><label for="employ-target">登用对象 · 来源 / 忠诚</label><select id="employ-target" data-target>${rows.some((row) => row.available) ? "" : '<option value="">暂无符合条件的登用对象</option>'}${rows.map((row) => `<option value="${esc(row.officer.id)}" ${row.available ? "" : "disabled"}>${esc(row.officer.name)} · ${esc(row.origin?.name ?? "驻地不明")} / ${esc(row.kind)} · 忠诚 ${number(row.officer.loyalty ?? 0)}${row.available ? "" : ` · ${esc(row.condition)}`}</option>`).join("")}</select></div></div><div class="result-preview" data-employ-preview aria-live="polite"></div>`;
+    body.querySelector("[data-employ-candidates]").append(createDataTable([
+      { label: "姓名", render: (row) => row.officer.name }, { label: "来源城", render: (row) => row.origin?.name ?? "驻地不明" },
+      { label: "身份", key: "kind" }, { label: "忠诚", render: (row) => row.officer.loyalty ?? "—", numeric: true },
+      { label: "登用条件", key: "condition" }
+    ], rows));
+    const envoy = body.querySelector("[data-envoy]");
+    const target = body.querySelector("[data-target]");
+    const preview = () => previewEmploy(state(), cityId, envoy.value, target.value, rules);
+    const refresh = () => {
+      const checked = preview();
+      body.querySelector("[data-employ-preview]").innerHTML = employPreviewMarkup(checked, rules);
+      const button = body.closest(".modal")?.querySelector(".dialog-confirm");
+      if (button) { button.disabled = !checked.ok; button.title = checked.ok ? "签发后在月末结算" : checked.message; }
+    };
+    envoy.addEventListener("change", refresh);
+    target.addEventListener("change", refresh);
+    refresh();
+    await actionWindow(`${city.name} · 登用人才`, body, "签发登用令", () => {
+      const checked = preview();
+      if (!checked.ok) { refresh(); window.requestAnimationFrame(refresh); return checked; }
+      return queueTask(state(), { kind: "employ", cityId, officerIds: [envoy.value], payload: { targetId: target.value } }, rules);
+    }, "employ", refresh);
   }
 
   async function showOfficerTransfer(cityId) {
@@ -184,7 +244,7 @@ export function createCampaignUI({ getState, scenario, rules, themes, onStart, o
       const source = getCity(state(), invasion.sourceId);
       const hasDefenders = cityOfficers(state(), city).some((officer) => officer.factionId === city.factionId);
       const body = document.createElement("div");
-      body.innerHTML = `<div class="invasion-banner"><span>边境急报</span><h3>${esc(city.name)}遭到进攻</h3><p>${esc(getFaction(state(), invasion.attackerFactionId).name)}由${esc(source.name)}出兵 ${number(invasion.troops)} 人。</p></div><div class="result-preview">我军 ${number(city.troops)} 兵 · 训练 ${city.training} · 士气 ${city.morale}<br>${city.wallLevel} 级城墙 · 城防度 ${city.defense}/100。野战与攻城共用 30 日期限和钱粮。</div><div class="selection-list"><label class="selection-card"><input type="radio" name="stance" value="siege" checked><span><strong>直接守城</strong><small>直接进入攻城战，全军统一计算，每日亲自选择守城指令</small></span></label><label class="selection-card"><input type="radio" name="stance" value="field"><span><strong>出城野战</strong><small>编组部队在错格战场迟滞敌军；敌军进入主据点即转入攻城</small></span></label></div><div data-defense-composer hidden></div>`;
+      body.innerHTML = `<div class="invasion-banner"><span>边境急报</span><h3>${esc(city.name)}遭到进攻</h3><p>${esc(getFaction(state(), invasion.attackerFactionId).name)}由${esc(source.name)}出兵 ${number(invasion.troops)} 人。</p></div><div class="result-preview">我军 ${number(city.troops)} 兵 · 训练 ${city.training} · 士气 ${city.morale}<br>${city.wallLevel} 级城墙 · 城防度 ${city.defense}/100。野战与攻城共享钱粮，每月最多推进30日，未分胜负则下月续战。</div><div class="selection-list"><label class="selection-card"><input type="radio" name="stance" value="siege" checked><span><strong>直接守城</strong><small>直接进入攻城战，全军统一计算，每日亲自选择守城指令</small></span></label><label class="selection-card"><input type="radio" name="stance" value="field"><span><strong>出城野战</strong><small>编组部队在错格战场迟滞敌军；敌军进入主据点即转入攻城</small></span></label></div><div data-defense-composer hidden></div>`;
       if (!hasDefenders || city.troops <= 0) {
         body.querySelector('[value="field"]').disabled = true;
         body.querySelector('[value="field"]').closest("label").title = "城中无将领或无兵力，无法出城野战";
@@ -192,11 +252,11 @@ export function createCampaignUI({ getState, scenario, rules, themes, onStart, o
       }
       const supplies = document.createElement("div");
       supplies.className = "result-preview";
-      supplies.innerHTML = `攻方随军：粮 ${number(invasion.supplies?.food)} · 金 ${number(invasion.supplies?.gold)}，当前日耗 ${number(dailyFoodCost(invasion.troops, rules))}。<br>我城军需：粮 ${number(city.food)} · 金 ${number(city.gold)}，全城驻军当前日耗 ${number(dailyFoodCost(city.troops, rules))}。<br>两种模式都由你指挥。守军共用城内钱粮，断粮即败；守住 ${rules.battleDayLimit} 日即可击退攻方。`;
+      supplies.innerHTML = `攻方随军：粮 ${number(invasion.supplies?.food)} · 金 ${number(invasion.supplies?.gold)}，当前日耗 ${number(dailyFoodCost(invasion.troops, rules))}。<br>我城军需：粮 ${number(city.food)} · 金 ${number(city.gold)}，全城驻军当前日耗 ${number(dailyFoodCost(city.troops, rules))}。<br>两种模式都由你指挥。守军共用城内钱粮，断粮即败；本月 ${rules.battleDayLimit} 日结束后保留战场，下月续战，不再因期限自动击退攻方。`;
       body.append(supplies);
       const commanderList = cityOfficers(state(), city);
-      const composer = hasDefenders && city.troops > 0 ? createArmyComposer({ city, officers: commanderList, rules, defending: true,
-        formations: createDefenderFormations(city, commanderList, rules) }) : null;
+      const composer = hasDefenders && city.troops > 0 ? createArmyComposer({ state: state(), city, officers: commanderList, rules, defending: true,
+        formations: createDefenderFormations(city, commanderList, rules, { state: state() }) }) : null;
       if (composer) body.querySelector("[data-defense-composer]").append(composer.element);
       body.querySelectorAll('input[name="stance"]').forEach((input) => input.addEventListener("change", () => {
         const confirm = body.closest(".modal")?.querySelector(".dialog-confirm");

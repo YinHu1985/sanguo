@@ -2,9 +2,24 @@ import { cityMapMetadata } from "./atlas.js";
 import { dailyFoodCost } from "./economy.js";
 import { formationOfficerIds, normalizeFormations } from "./army.js";
 import { normalizeCityDefense } from "./city-defense.js";
+import { normalizeCityEquipment, EQUIPMENT_KEYS } from "./equipment.js";
+import { normalizeFactionResearch } from "./technology.js";
+import { activeAmbushPreparation } from "./stratagems.js";
+import { restoreWarLocks } from "./war-state.js";
 
 const LEGACY_STORAGE_KEY = "hanmo-zhoujun-save-v1";
 export const storageKey = (scenarioId) => `hanmo-zhoujun-save-v2:${scenarioId}`;
+
+function normalizeSavedFormations(formations, equipmentCommitted, active = true) {
+  return normalizeFormations(formations).map((formation) => {
+    // The old cavalry toggle had no horse cost. Never invent transferable horses
+    // when reopening those orders under the equipment economy.
+    if (active && !equipmentCommitted && !formation.composition && formation.unitType === "cavalry") {
+      return { ...formation, unitType: "infantry" };
+    }
+    return formation;
+  });
+}
 
 export function createInitialState(scenario, rules) {
   return {
@@ -12,6 +27,8 @@ export function createInitialState(scenario, rules) {
     economyVersion: 2,
     taskVersion: 1,
     armyVersion: 1,
+    equipmentVersion: 1,
+    researchVersion: 1,
     tasks: [],
     nextTaskId: 1,
     turnResolution: null,
@@ -29,8 +46,8 @@ export function createInitialState(scenario, rules) {
     commandsMax: rules.commandsPerMonth,
     commandsRemaining: rules.commandsPerMonth,
     selectedCityId: scenario.cities.find((city) => city.factionId === scenario.playerFactionId)?.id,
-    factions: structuredClone(scenario.factions),
-    cities: scenario.cities.map((city) => ({ ...structuredClone(city), ...normalizeCityDefense(city) })),
+    factions: structuredClone(scenario.factions).map((faction) => normalizeFactionResearch(faction, rules)),
+    cities: scenario.cities.map((city) => normalizeCityEquipment({ ...structuredClone(city), ...normalizeCityDefense(city) }, rules)),
     officers: scenario.officers.map((officer) => ({ status: "active", ...structuredClone(officer), acted: false })),
     eventLog: [
       {
@@ -53,13 +70,17 @@ export function loadState(scenario, rules) {
       const upgradeEconomy = needsEconomyMigration(saved);
       const upgradeTasks = saved.taskVersion !== 1;
       const upgradeArmy = saved.armyVersion !== 1;
-      if (cleanupPlaceholders || upgradeEconomy || upgradeTasks || upgradeArmy) {
+      const upgradeEquipment = saved.equipmentVersion !== 1;
+      const upgradeResearch = saved.researchVersion !== 1;
+      if (cleanupPlaceholders || upgradeEconomy || upgradeTasks || upgradeArmy || upgradeEquipment || upgradeResearch) {
         try {
           const backups = [
             ...(cleanupPlaceholders ? ["before-placeholder-cleanup"] : []),
             ...(upgradeEconomy ? ["before-economy-v2"] : []),
             ...(upgradeTasks ? ["before-tasks-v1"] : []),
-            ...(upgradeArmy ? ["before-army-v1"] : [])
+            ...(upgradeArmy ? ["before-army-v1"] : []),
+            ...(upgradeEquipment ? ["before-equipment-v1"] : []),
+            ...(upgradeResearch ? ["before-research-v1"] : [])
           ];
           // All needed snapshots must exist before replacing the active slot.
           // A write failure returns the migrated in-memory campaign unchanged.
@@ -103,29 +124,46 @@ export function migrateState(saved, scenario, rules) {
   removePlaceholderOfficers(state, scenario);
   migrateEconomy(state, rules);
   state.armyVersion = 1;
-  for (const city of state.cities) Object.assign(city, normalizeCityDefense(city));
+  state.equipmentVersion = 1;
+  state.researchVersion = 1;
+  for (const city of state.cities) {
+    // Entity merging must not give an old campaign the scenario's opening stock.
+    const oldCity = saved.cities?.find((entry) => entry.id === city.id);
+    if (oldCity) for (const key of EQUIPMENT_KEYS) if (oldCity[key] === undefined) delete city[key];
+    Object.assign(city, normalizeCityDefense(city));
+    normalizeCityEquipment(city, rules);
+    if (city.ambushPreparation && !activeAmbushPreparation(city, state)) delete city.ambushPreparation;
+  }
+  state.factions.forEach((faction) => normalizeFactionResearch(faction, rules));
   for (const invasion of state.pendingInvasions ?? []) {
     if (!Array.isArray(invasion.divisions)) continue;
-    invasion.divisions = normalizeFormations(invasion.divisions);
+    invasion.divisions = normalizeSavedFormations(invasion.divisions, invasion.equipment, !invasion.resolved);
     invasion.officerIds = invasion.divisions.flatMap(formationOfficerIds);
   }
   state.taskVersion = 1;
   state.tasks = Array.isArray(state.tasks) ? state.tasks : [];
   for (const task of state.tasks) {
-    if (Array.isArray(task.payload?.divisions)) task.payload.divisions = normalizeFormations(task.payload.divisions);
+    const equipmentReserved = EQUIPMENT_KEYS.some((key) => task.reservation?.[key] > 0);
+    const active = ["running", "awaiting_battle"].includes(task.status);
+    if (task.reservation) for (const key of EQUIPMENT_KEYS) if (task.reservation[key] === undefined) task.reservation[key] = 0;
+    if (Array.isArray(task.payload?.divisions)) task.payload.divisions = normalizeSavedFormations(task.payload.divisions, equipmentReserved, active);
     if (Array.isArray(task.battle?.divisions)) {
-      task.battle.divisions = normalizeFormations(task.battle.divisions);
+      task.battle.divisions = normalizeSavedFormations(task.battle.divisions, task.battle.equipment, active);
       task.battle.armyOfficerIds = task.battle.divisions.flatMap(formationOfficerIds);
     }
   }
   state.nextTaskId = Number.isSafeInteger(state.nextTaskId) && state.nextTaskId > 0 ? state.nextTaskId : 1;
-  const activeTasks = state.tasks.filter((task) => ["running", "awaiting_battle"].includes(task.status));
+  const activeTasks = state.tasks.filter((task) => ["running", "awaiting_battle", "in_battle"].includes(task.status));
   for (const officer of state.officers) {
     const task = activeTasks.find((entry) => entry.officerIds?.includes(officer.id));
     if (task) { officer.taskId = task.id; officer.acted = true; }
     else if (officer.taskId) delete officer.taskId;
   }
   if (!state.cities.some((city) => city.id === state.selectedCityId)) state.selectedCityId = initial.selectedCityId;
+  if (state.warCampaignsVersion === 1) {
+    state.battles = Array.isArray(state.battles) ? state.battles : [];
+    restoreWarLocks(state);
+  }
   return state;
 }
 

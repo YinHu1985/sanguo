@@ -48,7 +48,7 @@ test("multi-officer formations share one troop pool and take all five maximum ab
   assert.equal(unit.troops, 8000);
   assert.deepEqual(unit.officerIds, ["guan-yu", "zhang-fei"]);
   assert.equal(unit.officerId, "guan-yu");
-  assert.equal(unit.commandLimit, baseRules.ranks["大将"] + baseRules.ranks["中郎将"]);
+  assert.equal(unit.commandLimit, baseRules.ranks["大将"]);
   for (const key of ["war", "intelligence", "leadership", "politics", "charm"]) {
     assert.equal(unit[key], Math.max(...commanders.map((officer) => officer[key])));
   }
@@ -141,7 +141,7 @@ test("outer army return allows a single deception response, then encirclement, w
   assert.equal(battle.chooseTransition("deceive").ok, true);
   assert.equal(battle.pendingDecision.kind, "encirclement");
   assert.equal(battle.cityDefense, 70);
-  assert.equal(battle.siege.layers[0].hp, 75);
+  assert.equal(battle.siege.hp, battle.siege.maxHp - 25);
   assert.equal(battle.chooseTransition("deceive").ok, false);
   assert.equal(battle.chooseTransition("open").ok, true);
   assert.equal(battle.phase, "siege");
@@ -185,17 +185,17 @@ test("no remaining friendly city forbids both outside withdrawal and full defend
   assert.equal(battle.escapedDefenderUnits.length, 0);
 });
 
-test("wall levels use the ordered inner, outer, and barbican layers with capped effective armies", () => {
-  assert.deepEqual(createSiegeState(1).layers.map((layer) => layer.id), ["inner"]);
-  assert.deepEqual(createSiegeState(2).layers.map((layer) => layer.id), ["outer", "inner"]);
-  assert.deepEqual(createSiegeState(3).layers.map((layer) => layer.id), ["barbican", "outer", "inner"]);
-  assert.equal(effectiveTroops(100000, 1), 20000);
-  assert.equal(effectiveTroops(100000, 2), 35000);
-  assert.equal(effectiveTroops(100000, 3), 50000);
+test("wall level changes only the single HP length; milestones never create extra segments", () => {
+  assert.equal(createSiegeState(1).maxHp, 100);
+  assert.equal(createSiegeState(2).maxHp, 160);
+  assert.equal(createSiegeState(3).maxHp, 220);
+  assert.equal(effectiveTroops(100000, 1), 30000);
+  assert.equal(effectiveTroops(100000, 2), 30000);
+  assert.equal(effectiveTroops(100000, 3), 30000);
   const state = createSiegeState(3);
-  assert.deepEqual(damageSiegeLayers(state, 150).breached, ["瓮城"]);
-  assert.equal(state.activeLayerIndex, 1);
-  assert.equal(state.layers[1].hp, 50);
+  assert.deepEqual(damageSiegeLayers(state, 100).breached, ["瓮城"]);
+  assert.equal(state.hp, 120);
+  assert.equal(state.layers, undefined);
   assert.equal(damageSiegeLayers(state, 150).conquered, true);
 });
 
@@ -205,8 +205,8 @@ test("encirclement adds wall length without also increasing attack progress or r
   battle.chooseTransition("return");
   battle.chooseTransition("deceive");
   battle.chooseTransition("encircle");
-  assert.equal(battle.siege.layers[0].maxHp, 125);
-  assert.equal(battle.siege.layers[0].hp, 100);
+  assert.equal(battle.siege.maxHp, 200);
+  assert.equal(battle.siege.hp, 175);
   const open = evaluateSiegeDay(dayInput(), baseRules);
   const closed = evaluateSiegeDay(dayInput({ encirclement: "encircle" }), baseRules);
   assert.equal(closed.progress, open.progress);
@@ -223,7 +223,7 @@ test("siege losses depend on opposing effective strength while progress depends 
   assert.ok(moreDefenders.attackerLoss > normal.attackerLoss);
   assert.equal(moreDefenders.progress, normal.progress);
   const capped = evaluateSiegeDay(dayInput({ attacker: army(100000), defender: army(100000), wallLevel: 1 }), baseRules);
-  const atCap = evaluateSiegeDay(dayInput({ attacker: army(20000), defender: army(20000), wallLevel: 1 }), baseRules);
+  const atCap = evaluateSiegeDay(dayInput({ attacker: army(30000), defender: army(30000), wallLevel: 1 }), baseRules);
   assert.deepEqual(capped, atCap);
 });
 
@@ -302,14 +302,14 @@ test("ongoing siege starvation uses mutable live stores and surviving troop cons
 });
 
 test("breaking the last wall ends the siege and does not consume tomorrow's food", () => {
-  const battle = siegeReady({ targetCity: { wallLevel: 1 }, siege: { layerHp: 0.1 } });
+  const battle = siegeReady({ targetCity: { wallLevel: 1 }, siege: { hitPointsByLevel: { 1: 0.1 } } });
   const stores = structuredClone(battle.supplies);
   battle.siegeOrder("ally", "assault");
   const result = battle.siegeOrder("enemy", "rotate");
   assert.equal(result.battleEnded, true);
   assert.equal(battle.winner, "ally");
   assert.equal(battle.outcomeType, "siege");
-  assert.equal(battle.siege.activeLayerIndex, 1);
+  assert.equal(battle.siege.hp, 0);
   assert.equal(battle.day, 1);
   assert.deepEqual(battle.supplies, stores);
 });
@@ -402,20 +402,18 @@ test("sortie uses defending intelligence and success suppresses advance with few
   assert.ok(battle.log.some((entry) => /袭扰成功/.test(entry.message)));
 });
 
-test("repair restores current wall HP only, never reviving a breached wall or exceeding its maximum", () => {
+test("repair restores the single HP pool without repeating milestone announcements or exceeding maximum", () => {
   const battle = siegeReady();
-  battle.siege.layers[0].hp = 0;
-  battle.siege.activeLayerIndex = 1;
-  battle.siege.layers[1].hp = 40;
+  damageSiegeLayers(battle.siege, battle.siege.maxHp - 40);
+  const milestones = [...battle.siege.breachedMilestones];
   battle.siegeOrder("ally", "ram");
   const result = battle.siegeOrder("enemy", "repair");
-  assert.equal(battle.siege.layers[0].hp, 0);
-  assert.equal(battle.siege.activeLayerIndex, 1);
-  assert.ok(Math.abs(battle.siege.layers[1].hp - (45 - result.progress)) < 0.00001);
-  battle.siege.layers[1].hp = battle.siege.layers[1].maxHp - 1;
+  assert.deepEqual(battle.siege.breachedMilestones, milestones);
+  assert.ok(Math.abs(battle.siege.hp - (45 - result.progress)) < 0.00001);
+  battle.siege.hp = battle.siege.maxHp - 1;
   battle.siegeOrder("ally", "ram");
   const next = battle.siegeOrder("enemy", "repair");
-  assert.ok(Math.abs(battle.siege.layers[1].hp - (battle.siege.layers[1].maxHp - next.progress)) < 0.00001);
+  assert.ok(Math.abs(battle.siege.hp - (battle.siege.maxHp - next.progress)) < 0.00001);
 });
 
 test("interception compares war and leadership as well as opposing capped troop numbers", () => {
@@ -426,7 +424,7 @@ test("interception compares war and leadership as well as opposing capped troop 
   assert.ok(advantage.defenderLoss > disadvantage.defenderLoss);
   assert.ok(advantage.attackerLoss < disadvantage.attackerLoss);
   assert.deepEqual(interceptionLosses({ ...strong, troops: 100000 }, { ...weak, troops: 100000 }, 1, baseRules),
-    interceptionLosses({ ...strong, troops: 20000 }, { ...weak, troops: 20000 }, 1, baseRules));
+    interceptionLosses({ ...strong, troops: 30000 }, { ...weak, troops: 30000 }, 1, baseRules));
 });
 
 test("all real attacking commanders remain available to siege even when their former troop pool is empty", () => {

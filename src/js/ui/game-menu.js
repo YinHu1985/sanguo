@@ -1,10 +1,11 @@
 import { escapeHtml as esc, openDialog } from "./components.js";
 
 export function gameMenuBlockReason({ state, battle, processingEnemy, advancingMonth, showingOpening, switchingCampaign }) {
-  if (battle || processingEnemy) return "当前正在战斗。暂不保存战斗中途局面，请完成战役后再存档、读档或返回主菜单。";
+  if (battle || processingEnemy) return "当前正在战斗。每个动作后会自动保存战场；请在本月战事暂停或结束、回到大地图后使用手动存档、读档或返回主菜单。";
   if (switchingCampaign || advancingMonth || showingOpening || state?.turnResolution
     || state?.pendingInvasions?.some((order) => !order.resolved)
-    || state?.tasks?.some((task) => task.status === "awaiting_battle")) {
+    || state?.tasks?.some((task) => task.status === "awaiting_battle" && !state?.battles?.some((record) => record.taskId === task.id && record.status === "paused"))
+    || state?.battles?.some((record) => record.status === "active")) {
     return "当前正在处理月结或军情。请完成本轮汇报与结算后再存档、读档或返回主菜单。";
   }
   return state?.started ? "" : "尚未开始征程。";

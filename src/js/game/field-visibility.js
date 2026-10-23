@@ -67,7 +67,10 @@ export function hexLine(first, second, nudge = 1e-6) {
 }
 
 function sightRange(observer, config, explicitRange, hooks) {
-  const base = explicitRange ?? ((Number.isFinite(observer?.maxActionPoints) ? observer.maxActionPoints : config.minActionPoints) + config.visionBonus);
+  // Real formations have one centrally calculated panel. Lightweight callers
+  // and legacy save fixtures retain the old AP-based fallback.
+  const base = explicitRange ?? observer?.combatStats?.vision ?? observer?.vision
+    ?? ((Number.isFinite(observer?.maxActionPoints) ? observer.maxActionPoints : config.minActionPoints) + config.visionBonus);
   const adjusted = hooks?.visionRange?.(observer, base) ?? base;
   return Number.isFinite(adjusted) ? Math.max(0, Math.floor(adjusted)) : 0;
 }

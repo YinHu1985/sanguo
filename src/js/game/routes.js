@@ -1,5 +1,6 @@
 import { NEUTRAL_FACTION_ID } from "./atlas.js";
 import { areAllied } from "./campaign.js";
+import { cityBesieged } from "./war-state.js";
 
 // The whole route is checked against the sending faction: an ally's own allies
 // do not automatically grant passage to the sender.
@@ -8,7 +9,7 @@ function friendlyRoutes(state, sourceId, factionId) {
   const source = cities.get(sourceId);
   const sender = factionId ?? source?.factionId;
   const passable = (city) => city && city.factionId && city.factionId !== NEUTRAL_FACTION_ID
-    && areAllied(state, sender, city.factionId);
+    && !cityBesieged(state, city.id) && areAllied(state, sender, city.factionId);
   const parents = new Map();
   if (!sender || sender === NEUTRAL_FACTION_ID || !passable(source)) return { cities, parents };
   parents.set(sourceId, null);

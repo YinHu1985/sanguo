@@ -1,7 +1,13 @@
 import { dailyFoodCost } from "./economy.js";
 import { aggregateAbilities, createDefenderFormations, formationCapacity, formationOfficerIds, normalizeFormations } from "./army.js";
-import { ATTACK_ORDERS, DEFENSE_ORDERS, createSiegeState, damageSiegeLayers, effectiveTroops, evaluateSiegeDay, getSiegeConfig, interceptionLosses } from "./siege.js";
+import { ATTACK_ORDERS, DEFENSE_ORDERS, createSiegeState, damageSiegeLayers, effectiveTroops, evaluateSiegeDay, getSiegeConfig, interceptionLosses, normalizeSiegeState } from "./siege.js";
 import { computeFieldVisibility, getFieldConfig, hexDistance, unitVisible } from "./field-visibility.js";
+import { aggregateTroopStats, applyArmyLosses, applyFormationLosses, formationComposition, primaryTroopType, sumEquipment } from "./troops.js";
+import { calculateCombatStats, getCombatConfig } from "./combat-stats.js";
+import { getStrategyConfig, strategySuccessChance } from "./battle-strategies.js";
+import { activeAmbushPreparation } from "./stratagems.js";
+import { initializeBattleStatuses, getBattleStatus, applyBattleStatus, removeBattleStatus,
+  clearBattleStatuses, consumeActivationStatuses, getControllingStatus } from "./battle-statuses.js";
 
 const UNIT_TYPES = {
   infantry: { name: "步兵", actionPoints: 6, initiative: 0, attack: 1, range: 1, attackCost: 3 },
@@ -10,13 +16,28 @@ const UNIT_TYPES = {
 };
 
 const FIRE_COST = 4;
+const RANGED_DEFAULTS = { shootActionPoints: 2, fireArrowActionPoints: 3, fireArrowGoldCost: 30, fireArrowChance: 0.3 };
 // An uncommanded garrison is a troop formation, not a generated character.
 const GARRISON_STATS = { war: 35, intelligence: 25, leadership: 30, politics: 25, charm: 30, deploymentLimit: 2000 };
 const keyOf = (x, y) => `${x},${y}`;
 
 export class BattleEngine {
-  constructor({ sourceCity, targetCity, divisions, officers, rules, map, supplies = {}, playerSide = "ally", rng = Math.random,
-    mode = "field", defenderDivisions, canDefenderRetreat = false }) {
+  #forcedActorId = null;
+  #randomState = 0;
+  #seededRandom = () => {
+    this.#randomState = (this.#randomState + 0x6D2B79F5) >>> 0;
+    let value = this.#randomState;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+
+  constructor({ sourceCity, targetCity, divisions, officers, rules, map, supplies = {}, playerSide = "ally", rng,
+    mode = "field", defenderDivisions, canDefenderRetreat = false, state, campaignMode = false, seed, _snapshot, visibilityHooks }) {
+    if (_snapshot) {
+      this.#restore(_snapshot, { rules, map, rng, visibilityHooks });
+      return;
+    }
     if (playerSide !== "ally" && playerSide !== "enemy") throw new Error("无效的玩家战斗阵营");
     // Internal sides describe battle roles, not ownership: ally attacks and enemy
     // defends. Player control can change without reversing deployment or supplies.
@@ -24,9 +45,18 @@ export class BattleEngine {
     this.aiSide = playerSide === "ally" ? "enemy" : "ally";
     this.sourceCityId = sourceCity.id;
     this.targetCityId = targetCity.id;
+    this.attackerFactionId = sourceCity.factionId;
+    this.defenderFactionId = targetCity.factionId;
+    this.campaignMode = Boolean(campaignMode);
+    this.nextPauseDay = rules.battleDayLimit ?? 30;
     this.rules = rules;
+    const preparation = activeAmbushPreparation(targetCity, state);
+    this.defenderAmbushPreparation = preparation ? { ...preparation } : null;
+    this.ambushPreparationUsedId = null;
     this.map = map;
-    this.rng = rng;
+    this.#randomState = Number.isFinite(seed) ? seed >>> 0 : Math.floor(Math.random() * 4294967296) >>> 0;
+    this.rng = rng ?? this.#seededRandom;
+    if (visibilityHooks) this.visibilityHooks = visibilityHooks;
     this.phase = "field";
     this.pendingDecision = null;
     this.canDefenderRetreat = canDefenderRetreat;
@@ -50,6 +80,7 @@ export class BattleEngine {
       ally: { food: reserve(supplies.food), gold: reserve(supplies.gold) },
       enemy: { food: reserve(targetCity.food), gold: reserve(targetCity.gold) }
     };
+    this.rationDaysPaid = { ally: 0, enemy: 0 };
 
     const officerMap = new Map(officers.map((officer) => [officer.id, officer]));
     this.defenderOfficers = targetCity.officerIds.map((id) => officerMap.get(id)).filter((officer) => officer
@@ -67,6 +98,7 @@ export class BattleEngine {
       });
     })) throw new Error("出征部队必须由出发城的武将带领，且不能重复编组");
     this.armyOfficerIds = attackerIds;
+    this.attackerEquipmentCommitted = sumEquipment(attackers, rules);
     this.attackerOfficers = attackerIds.map((id) => officerMap.get(id));
     const usedPositions = new Set();
     const deploymentPosition = (side, index) => {
@@ -91,11 +123,15 @@ export class BattleEngine {
       training: sourceCity.training,
       morale: sourceCity.morale,
       unitType: division.unitType ?? "infantry",
+      composition: formationComposition(division, rules),
       position: deploymentPosition("ally", index)
     }));
 
-    const defenders = defenderDivisions === undefined ? createDefenderFormations(targetCity, officers, rules) : normalizeFormations(defenderDivisions);
+    const defenders = defenderDivisions === undefined ? createDefenderFormations(targetCity, officers, rules, { state }) : normalizeFormations(defenderDivisions);
     const defenderIds = defenders.flatMap(formationOfficerIds);
+    // The caller settles this commitment against strategic stores only once the
+    // battle is resolved. Constructing a preview must not consume city equipment.
+    this.defenderEquipmentCommitted = sumEquipment(defenders, rules);
     if (new Set(defenderIds).size !== defenderIds.length || defenders.some((division) => !Number.isSafeInteger(division.troops)
       || division.troops < 0 || formationOfficerIds(division).some((id) => {
         const officer = officerMap.get(id);
@@ -118,9 +154,11 @@ export class BattleEngine {
         training: targetCity.training,
         morale: targetCity.morale,
         unitType: division.unitType ?? "infantry",
+        composition: formationComposition(division, rules),
         position: deploymentPosition("enemy", index)
       }));
     });
+    this.attackerCamp = this.#deriveAttackerCamp(map.attackerCamp);
     this.#writeLog(`第 1 日，两军于${targetCity.name}城外列阵。`);
     if (mode === "siege") {
       this.units.filter((unit) => unit.side === "enemy").forEach((unit) => { unit.inCity = true; });
@@ -129,17 +167,96 @@ export class BattleEngine {
     this.#prepareDay();
   }
 
-  #makeUnit({ id, side, commanders = [], name, commandLimit, troops, training, morale, unitType, position }) {
-    const type = UNIT_TYPES[unitType] ?? UNIT_TYPES.infantry;
+  /** JSON-only campaign state. Functions are runtime dependencies, never save data. */
+  snapshot() {
+    const data = Object.fromEntries(Object.entries(this).filter(([key, value]) => !["rules", "rng", "visibilityHooks"].includes(key)
+      && typeof value !== "function"));
+    return JSON.parse(JSON.stringify({ ...data, schemaVersion: 1,
+      random: { algorithm: "mulberry32", state: this.#randomState, externalSource: this.rng !== this.#seededRandom } },
+    (_, value) => value instanceof Set ? [...value] : value));
+  }
+
+  static fromSnapshot(snapshot, options = {}) {
+    return new BattleEngine({ ...options, _snapshot: snapshot });
+  }
+
+  #restore(snapshot, { rules, map, rng, visibilityHooks }) {
+    if (!snapshot || typeof snapshot !== "object" || (snapshot.schemaVersion ?? 1) !== 1 || !rules) throw new Error("战役存档版本或规则无效");
+    const saved = structuredClone(snapshot);
+    const restoredMap = map ?? saved.map;
+    const legalPoint = (point) => point && Number.isSafeInteger(point.x) && Number.isSafeInteger(point.y)
+      && point.x >= 0 && point.y >= 0 && point.x < restoredMap?.width && point.y < restoredMap?.height;
+    if (!restoredMap || !Number.isSafeInteger(restoredMap.width) || restoredMap.width < 1
+      || !Number.isSafeInteger(restoredMap.height) || restoredMap.height < 1
+      || !Array.isArray(restoredMap.terrain) || restoredMap.terrain.length !== restoredMap.width * restoredMap.height
+      || !Array.isArray(saved.units) || !Number.isSafeInteger(saved.day) || saved.day < 1
+      || !["active", "paused", "ended"].includes(saved.status)
+      || !["field", "siege_transition", "siege"].includes(saved.phase)
+      || !["ally", "enemy"].includes(saved.playerSide)
+      || !legalPoint(saved.stronghold)
+      || (saved.attackerCamp && (!legalPoint(saved.attackerCamp)
+        || (saved.attackerCamp.x === saved.stronghold.x && saved.attackerCamp.y === saved.stronghold.y)))
+      || (saved.nextPauseDay !== undefined && (!Number.isSafeInteger(saved.nextPauseDay) || saved.nextPauseDay < saved.day))
+      || saved.units.some((unit) => !unit || typeof unit.id !== "string" || !["ally", "enemy"].includes(unit.side)
+        || !Number.isSafeInteger(unit.troops) || unit.troops < 0 || !legalPoint(unit.position))
+      || new Set(saved.units.map((unit) => unit.id)).size !== saved.units.length
+      || !Array.isArray(saved.queue) || new Set(saved.queue).size !== saved.queue.length
+      || saved.queue.some((id) => !saved.units.some((unit) => unit.id === id))
+      || ["ally", "enemy"].some((side) => ["food", "gold"].some((key) => !Number.isSafeInteger(saved.supplies?.[side]?.[key]) || saved.supplies[side][key] < 0))) {
+      throw new Error("战役存档中的地图、军队或钱粮记录无效");
+    }
+    for (const [key, value] of Object.entries(saved)) {
+      if (!["__proto__", "constructor", "prototype", "rules", "rng", "random", "schemaVersion", "visibilityHooks"].includes(key)
+        && !Object.getOwnPropertyDescriptor(BattleEngine.prototype, key)) this[key] = value;
+    }
+    this.rules = rules;
+    this.map = structuredClone(restoredMap);
+    this.campaignMode = Boolean(saved.campaignMode);
+    this.rationDaysPaid = Object.fromEntries(["ally", "enemy"].map((side) => [side,
+      Number.isSafeInteger(saved.rationDaysPaid?.[side]) && saved.rationDaysPaid[side] >= 0 ? saved.rationDaysPaid[side] : 0]));
+    this.nextPauseDay = saved.nextPauseDay ?? Math.ceil(saved.day / (rules.battleDayLimit ?? 30)) * (rules.battleDayLimit ?? 30);
+    this.#randomState = Number.isFinite(saved.random?.state) ? saved.random.state >>> 0 : 0;
+    this.rng = rng ?? this.#seededRandom;
+    if (visibilityHooks) this.visibilityHooks = visibilityHooks;
+    this.exploredTiles = Object.fromEntries(["ally", "enemy"].map((side) => [side, new Set(saved.exploredTiles?.[side] ?? [])]));
+    this.units.forEach((unit) => {
+      initializeBattleStatuses(unit);
+      if (!unit.combatStats) this.#refreshUnitTroopStats(unit);
+    });
+    this.siege = normalizeSiegeState(saved.siege, this.wallLevel, rules);
+    this.attackerCamp = saved.attackerCamp ? { ...saved.attackerCamp } : this.#deriveAttackerCamp(this.map.attackerCamp);
+  }
+
+  #deriveAttackerCamp(preferred) {
+    const legal = (point) => point && Number.isInteger(point.x) && Number.isInteger(point.y)
+      && point.x >= 0 && point.y >= 0 && point.x < this.map.width && point.y < this.map.height
+      && !(point.x === this.stronghold.x && point.y === this.stronghold.y)
+      && Number.isFinite(this.movementCostAt(point.x, point.y));
+    if (legal(preferred) && this.unitAt(preferred.x, preferred.y)?.side !== "enemy") return { ...preferred };
+    const candidates = Array.from({ length: this.map.width * this.map.height }, (_, index) => ({
+      x: Math.floor(index / this.map.height), y: index % this.map.height
+    })).filter(legal).sort((a, b) => a.x - b.x || Math.abs(a.y - this.map.height / 2) - Math.abs(b.y - this.map.height / 2));
+    const position = candidates.find((point) => !this.unitAt(point.x, point.y))
+      ?? candidates.find((point) => this.unitAt(point.x, point.y)?.side === "ally");
+    if (!position) throw new Error("战场缺少合法的进攻方大本营");
+    return { ...position };
+  }
+
+  resumeMonth() {
+    if (!this.campaignMode || this.status !== "paused") return { ok: false, message: "战役未处于月末暂停状态" };
+    this.status = "active";
+    this.nextPauseDay = this.day + (this.rules.battleDayLimit ?? 30);
+    this.day += 1;
+    this.#prepareDay();
+    this.#writeLog(`战役续行，进入第 ${this.day} 日。`);
+    return { ok: true, resumed: true, day: this.day, status: this.status,
+      ...(this.status === "ended" ? { battleEnded: true, winner: this.winner } : {}) };
+  }
+
+  #makeUnit({ id, side, commanders = [], name, commandLimit, troops, training, morale, unitType, composition, position }) {
     const officer = commanders[0];
     const abilities = commanders.length ? aggregateAbilities(commanders, { unitType, side }) : GARRISON_STATS;
-    const commandBonus = abilities.leadership >= 85 ? 1 : 0;
-    const trainingBonus = training >= 75 ? 1 : 0;
-    const moralePenalty = morale < 40 ? 1 : 0;
-    const field = getFieldConfig(this.rules);
-    const maxActionPoints = Math.max(field.minActionPoints, Math.min(field.maxActionPoints,
-      Math.ceil((type.actionPoints + commandBonus + trainingBonus - moralePenalty) * field.movementScale)));
-    return {
+    const unit = {
       id,
       side,
       officerId: officer?.id ?? null,
@@ -158,14 +275,55 @@ export class BattleEngine {
       training,
       morale,
       unitType,
-      unitTypeName: type.name,
-      attackRange: type.range,
-      maxActionPoints,
-      actionPoints: maxActionPoints,
+      composition: { ...composition },
+      attackRange: 1,
       inCity: false,
       ambushing: false,
+      statuses: {},
       position: { ...position }
     };
+    initializeBattleStatuses(unit);
+    this.#refreshUnitTroopStats(unit);
+    unit.actionPoints = unit.maxActionPoints;
+    unit.activationActionPoints = unit.maxActionPoints;
+    return unit;
+  }
+
+  #refreshUnitTroopStats(unit) {
+    const stats = calculateCombatStats(unit, this.rules);
+    unit.combatStats = stats;
+    const activeTypes = Object.keys(unit.composition ?? {}).filter((id) => unit.composition[id] > 0);
+    unit.unitType = primaryTroopType(unit.composition);
+    const type = this.rules.troopTypes?.[activeTypes[0]] ?? UNIT_TYPES[activeTypes[0]] ?? UNIT_TYPES.infantry;
+    unit.unitTypeName = activeTypes.length > 1 ? "混编部队" : type.name;
+    unit.rangedRange = stats.range;
+    unit.rangedTroops = stats.rangedTroops;
+    unit.maxActionPoints = stats.actionPoints;
+    unit.vision = stats.vision;
+    if (Number.isFinite(unit.actionPoints)) unit.actionPoints = Math.min(unit.actionPoints, unit.maxActionPoints);
+  }
+
+  /** Public hook for future effects that change training, morale or abilities. */
+  refreshCombatStats(unit = this.activeUnit) {
+    if (!unit) return undefined;
+    this.#refreshUnitTroopStats(unit);
+    return unit.combatStats;
+  }
+
+  #damageUnit(unit, requested, damageType) {
+    const loss = applyFormationLosses(unit, requested, this.rules, damageType);
+    this.#refreshUnitTroopStats(unit);
+    if (unit.troops <= 0) {
+      clearBattleStatuses(unit, "removed");
+      this.#cancelProvocationsFrom(unit.id);
+    }
+    return loss;
+  }
+
+  #cancelProvocationsFrom(sourceId) {
+    for (const unit of this.units) {
+      if (getBattleStatus(unit, "provocation")?.sourceId === sourceId) removeBattleStatus(unit, "provocation");
+    }
   }
 
   #prepareDay() {
@@ -187,6 +345,7 @@ export class BattleEngine {
       this.#finish("enemy", "supply", "攻方军粮不足，被迫撤退");
       return;
     }
+    this.rationDaysPaid.ally += 1;
     const defenderSpent = Math.min(this.supplies.enemy.food, needs.enemy);
     this.supplies.enemy.food -= defenderSpent;
     if (this.phase === "field") {
@@ -197,8 +356,14 @@ export class BattleEngine {
       this.#finish("ally", "supply", "守方军粮不足，无法继续防守");
       return;
     }
+    this.rationDaysPaid.enemy += 1;
     if (this.phase !== "field") { this.queue = []; return; }
-    this.fieldUnits().forEach((unit) => { unit.actionPoints = unit.maxActionPoints; });
+    this.fieldUnits().forEach((unit) => {
+      this.#refreshUnitTroopStats(unit);
+      unit.actionPoints = unit.maxActionPoints;
+      unit.activationActionPoints = unit.maxActionPoints;
+      unit.strategyAttempted = false;
+    });
     this.queue = this.fieldUnits()
       .map((unit) => unit.id)
       .sort((a, b) => this.initiative(this.getUnit(b)) - this.initiative(this.getUnit(a)));
@@ -214,6 +379,7 @@ export class BattleEngine {
       const wasRouted = unit.troops <= 0;
       if (wasRouted) {
         unit.ambushing = false;
+        clearBattleStatuses(unit, "removed");
         const fallbackTiles = Array.from({ length: this.map.width * this.map.height }, (_, index) => ({
           x: this.map.width - 1 - (index % this.map.width), y: Math.floor(index / this.map.width)
         }));
@@ -225,10 +391,14 @@ export class BattleEngine {
       const total = unit.troops + incoming;
       unit.training = Math.round((unit.training * unit.troops + this.defenderReserveTraining * incoming) / total);
       unit.morale = Math.round((unit.morale * unit.troops + this.defenderReserveMorale * incoming) / total);
+      applyFormationLosses(unit, 0, this.rules);
+      unit.composition.infantry = (unit.composition.infantry ?? 0) + incoming;
       unit.troops = total;
+      this.#refreshUnitTroopStats(unit);
       unit.maxTroops = Math.max(unit.maxTroops, total);
       if (wasRouted) {
         unit.morale = Math.max(25, unit.morale - 10);
+        this.#refreshUnitTroopStats(unit);
         // The new formation has to reorganize and acts on the following day.
         unit.actionPoints = 0;
       }
@@ -252,6 +422,13 @@ export class BattleEngine {
   #refreshVisibility() {
     this.getVisibility("ally");
     this.getVisibility("enemy");
+    // Remember only observations made by the affected army. A hidden caster's
+    // subsequent movement must never become a homing beacon through the fog.
+    for (const unit of this.fieldUnits()) {
+      const effect = getBattleStatus(unit, "provocation");
+      const source = this.getUnit(effect?.sourceId);
+      if (source && this.isUnitVisibleTo(source, unit.side)) effect.lastKnownPosition = { ...source.position };
+    }
   }
 
   getVisibility(side = this.playerSide) {
@@ -309,13 +486,24 @@ export class BattleEngine {
     const escapedIds = new Set(this.escapedDefenderUnits.flatMap(formationOfficerIds));
     const commanders = side === "enemy" ? this.defenderOfficers.filter((officer) => !escapedIds.has(officer.id)) : this.attackerOfficers;
     const abilities = commanders.length ? aggregateAbilities(commanders) : { ...GARRISON_STATS };
-    return { ...abilities, troops, training: weighted("training", this.defenderReserveTraining),
-      morale: weighted("morale", this.defenderReserveMorale), effectiveTroops: effectiveTroops(troops, this.wallLevel, this.rules) };
+    const composition = { infantry: reserve };
+    for (const unit of units) {
+      for (const [id, count] of Object.entries(formationComposition(unit, this.rules))) composition[id] = (composition[id] ?? 0) + count;
+    }
+    const troopStats = aggregateTroopStats(composition, this.rules);
+    const army = { ...abilities, troops, training: weighted("training", this.defenderReserveTraining),
+      morale: weighted("morale", this.defenderReserveMorale), effectiveTroops: effectiveTroops(troops, this.wallLevel, this.rules),
+      composition, troopAttack: troopStats.attack, troopDefense: troopStats.defense };
+    army.combatStats = calculateCombatStats(army, this.rules);
+    return army;
   }
 
   changeMorale(side, amount, reason = "") {
     if (!["ally", "enemy"].includes(side) || !Number.isFinite(amount)) return { ok: false, message: "士气变动无效" };
-    for (const unit of this.livingUnits(side)) unit.morale = Math.max(0, Math.min(100, unit.morale + amount));
+    for (const unit of this.livingUnits(side)) {
+      unit.morale = Math.max(0, Math.min(100, unit.morale + amount));
+      this.#refreshUnitTroopStats(unit);
+    }
     if (side === "enemy") this.defenderReserveMorale = Math.max(0, Math.min(100, this.defenderReserveMorale + amount));
     if (reason) this.#writeLog(`${side === "ally" ? "攻方" : "守方"}${reason}，士气 ${amount >= 0 ? "+" : ""}${amount}。`,
       { audience: this.phase === "field" ? [side] : ["ally", "enemy"] });
@@ -336,19 +524,28 @@ export class BattleEngine {
   }
 
   strategyGoldCost(action) {
+    if (action === "fireArrow") return Math.max(0, this.rangedConfig().fireArrowGoldCost);
+    if (action === "doubt" || action === "provoke") return getStrategyConfig(action, this.rules).goldCost;
     return Math.max(0, this.rules.battle?.strategyGoldCosts?.[action] ?? (action === "fire" ? 50 : 0));
   }
 
   initiative(unit) {
-    const type = UNIT_TYPES[unit.unitType] ?? UNIT_TYPES.infantry;
-    return Math.round(unit.leadership * 0.55 + unit.training * 0.25 + unit.morale * 0.2 + type.initiative);
+    // Recompute the pure value here as tests and future officer effects can
+    // modify abilities between activations without changing troop composition.
+    return calculateCombatStats(unit, this.rules).initiative;
+  }
+
+  rangedConfig() {
+    return { ...RANGED_DEFAULTS, ...this.rules.battle?.ranged };
   }
 
   actionCost(action, unit = this.activeUnit) {
     if (!unit) return Infinity;
     const scale = getFieldConfig(this.rules).attackCostScale;
-    if (action === "attack") return Math.max(1, Math.ceil((UNIT_TYPES[unit.unitType] ?? UNIT_TYPES.infantry).attackCost * scale));
+    if (action === "attack") return (unit.combatStats ?? calculateCombatStats(unit, this.rules)).attackCost;
     if (action === "fire") return Math.max(1, Math.ceil(FIRE_COST * scale));
+    if (action === "doubt" || action === "provoke") return getStrategyConfig(action, this.rules).actionPoints;
+    if (action === "shoot" || action === "fireArrow") return Math.max(1, Math.ceil(this.rangedConfig()[`${action}ActionPoints`]));
     return 0;
   }
 
@@ -444,18 +641,110 @@ export class BattleEngine {
   attackTargets(unit = this.activeUnit) {
     if (this.status !== "active" || this.phase !== "field" || !unit || unit.inCity || unit.actionPoints < this.actionCost("attack", unit)) return [];
     return this.visibleUnits(unit.side).filter((target) => target.side !== unit.side)
-      .filter((target) => this.distance(unit.position, target.position) <= unit.attackRange);
+      .filter((target) => this.distance(unit.position, target.position) === 1);
+  }
+
+  shootTargets(unit = this.activeUnit, action = "shoot") {
+    if (this.status !== "active" || this.phase !== "field" || !unit || unit.inCity || unit.troops <= 0
+      || unit.actionPoints < this.actionCost(action, unit) || this.supplies[unit.side].gold < this.strategyGoldCost(action)) return [];
+    const stats = unit.combatStats ?? calculateCombatStats(unit, this.rules);
+    if (stats.rangedTroops <= 0 || stats.range < 1) return [];
+    return this.visibleUnits(unit.side).filter((target) => target.side !== unit.side)
+      .filter((target) => this.distance(unit.position, target.position) <= stats.range);
+  }
+
+  fireArrowTargets(unit = this.activeUnit) {
+    return this.shootTargets(unit, "fireArrow");
   }
 
   fireTargets(unit = this.activeUnit) {
-    if (this.status !== "active" || this.phase !== "field" || !unit || unit.inCity || unit.actionPoints < this.actionCost("fire", unit)
-      || this.supplies[unit.side].gold < this.strategyGoldCost("fire")) return [];
+    return this.strategyTargets("fire", unit);
+  }
+
+  strategyTargets(action, unit = this.activeUnit) {
+    if (!["fire", "doubt", "provoke"].includes(action) || this.status !== "active" || this.phase !== "field"
+      || !unit || unit.troops <= 0 || unit.inCity || unit.actionPoints < this.actionCost(action, unit)
+      || this.supplies[unit.side].gold < this.strategyGoldCost(action) || this.#manualActionBlocked(unit)) return [];
     return this.visibleUnits(unit.side).filter((target) => target.side !== unit.side)
-      .filter((target) => this.distance(unit.position, target.position) <= 2);
+      .filter((target) => this.distance(unit.position, target.position) === 1)
+      .filter((target) => action !== "doubt" || !getBattleStatus(target, "doubt"))
+      .filter((target) => action !== "provoke" || !getBattleStatus(target, "provocation"));
+  }
+
+  /** Pure status query: reading the active unit never advances or consumes a turn. */
+  hasForcedAction(unit = this.activeUnit) {
+    return this.status === "active" && this.phase === "field" && Boolean(unit && unit.troops > 0
+      && !unit.inCity && getControllingStatus(unit));
+  }
+
+  #manualActionBlocked(unit) {
+    return this.hasForcedAction(unit) && this.#forcedActorId !== unit.id;
+  }
+
+  #controlRejection() {
+    return { ok: false, forced: true, message: "部队正受疑兵或挑衅影响，须先结算强制行动" };
+  }
+
+  #withForcedAction(unit, execute) {
+    const previous = this.#forcedActorId;
+    this.#forcedActorId = unit.id;
+    try { return { ...execute(), forced: true }; }
+    finally { this.#forcedActorId = previous; }
+  }
+
+  #endForcedActivation(unit, message, extra = {}) {
+    unit.actionPoints = 0;
+    this.#writeLog(message, { units: [unit] });
+    return this.#endActivation({ ok: true, forced: true, action: "provoke-end", actorId: unit.id, message, ...extra });
+  }
+
+  /** One call is one visible step, so animations and ambushes can interrupt pursuit. */
+  runForcedTurn() {
+    const unit = this.activeUnit;
+    if (!this.hasForcedAction(unit)) return { ok: false, message: "当前部队没有强制行动" };
+    if (getControllingStatus(unit)?.type === "doubt") {
+      unit.ambushing = false;
+      unit.actionPoints = 0;
+      const message = `${unit.name}中了疑兵之计，本次行动无法出击。`;
+      this.#writeLog(message, { units: [unit] });
+      return this.#endActivation({ ok: true, forced: true, action: "doubt-skip", actorId: unit.id, message });
+    }
+    const effect = getBattleStatus(unit, "provocation");
+    const source = this.getUnit(effect.sourceId);
+    if (!source || source.troops <= 0 || source.inCity || source.side === unit.side
+      || !Number.isInteger(source.position?.x) || !Number.isInteger(source.position?.y)
+      || source.position.x < 0 || source.position.y < 0 || source.position.x >= this.map.width || source.position.y >= this.map.height) {
+      removeBattleStatus(unit, "provocation");
+      const message = `${unit.name}失去追击目标，恢复指挥。`;
+      this.#writeLog(message, { audience: [unit.side] });
+      return { ok: true, forced: true, action: "provoke-cancel", actorId: unit.id, message, actionContinues: true };
+    }
+    effect.active = true;
+    unit.ambushing = false;
+    const visible = this.isUnitVisibleTo(source, unit.side);
+    if (visible) effect.lastKnownPosition = { ...source.position };
+    if (visible && this.distance(unit.position, source.position) === 1) {
+      if (unit.actionPoints >= this.actionCost("attack", unit)) return this.#withForcedAction(unit, () => this.attack(source.id));
+      return this.#endForcedActivation(unit, `${unit.name}追击后行动力耗尽。`);
+    }
+    const destination = effect.lastKnownPosition;
+    const currentDistance = destination ? this.distance(unit.position, destination) : 0;
+    const moves = destination ? this.reachableTiles(unit, { cautious: false }) : [];
+    const best = moves.sort((a, b) => this.distance(a, destination) - this.distance(b, destination)
+      || a.cost - b.cost || a.x - b.x || a.y - b.y)[0];
+    if (!best || this.distance(best, destination) >= currentDistance) {
+      return this.#endForcedActivation(unit, `${unit.name}无法继续追击，结束本次行动。`);
+    }
+    const [step] = this.findPath(best, unit, { cautious: false });
+    if (!step) return this.#endForcedActivation(unit, `${unit.name}追击受阻，结束本次行动。`);
+    const result = this.#withForcedAction(unit, () => this.moveStep(step.x, step.y, { cautious: false }));
+    if (!result.ok) return this.#endForcedActivation(unit, result.message, { interrupted: true });
+    return result;
   }
 
   moveStep(x, y, { cautious = false } = {}) {
     const unit = this.activeUnit;
+    if (this.#manualActionBlocked(unit)) return this.#controlRejection();
     const adjacent = unit && this.neighbors(unit.position).some((tile) => tile.x === x && tile.y === y);
     const cost = this.movementCostAt(x, y, unit, { cautious });
     if (!unit || !adjacent || !Number.isFinite(cost) || cost > unit.actionPoints) return { ok: false, message: "行动力不足或该格无法进入" };
@@ -486,16 +775,24 @@ export class BattleEngine {
         if (unit.troops <= 0) break;
         ambusher.ambushing = false;
         const hitAudience = this.#eventAudience([ambusher, unit]);
-        const damage = this.#attackDamage(ambusher, unit);
-        unit.troops = Math.max(0, unit.troops - damage);
+        const preparation = ambusher.side === "enemy" && !this.ambushPreparationUsedId ? this.defenderAmbushPreparation : null;
+        const baseDamage = this.#attackDamage(ambusher, unit);
+        const damage = this.#damageUnit(unit, Math.round(baseDamage * (1 + (preparation?.bonus ?? 0))), "melee");
+        if (damage > 0 && preparation) this.ambushPreparationUsedId = preparation.id;
         unit.morale = Math.max(0, unit.morale - 5);
-        ambushes.push({ actorId: ambusher.id, targetId: unit.id, damage });
+        this.#refreshUnitTroopStats(unit);
+        ambushes.push({ actorId: ambusher.id, targetId: unit.id, damage, preparationBonus: preparation?.bonus ?? 0 });
         this.#writeLog(`${ambusher.name}伏兵突击${unit.name}，造成 ${damage.toLocaleString()} 伤亡，行军被截断。`, { audience: hitAudience });
       }
     }
     if (ambushes.length) {
       unit.actionPoints = 0;
       this.#refreshVisibility();
+      if (unit.troops > 0 && unit.side === "enemy" && x === this.attackerCamp.x && y === this.attackerCamp.y) {
+        this.#finish("enemy", "camp", "守军攻占进攻方大本营，进攻军败退");
+        return { ok: true, action: "move", actorId: unit.id, cost, cautious, step: true, ambushes,
+          interrupted: true, activationEnded: true, battleEnded: true, winner: this.winner, message: this.outcomeReason };
+      }
       if (unit.troops > 0 && unit.side === "ally" && x === this.stronghold.x && y === this.stronghold.y) {
         this.enterSiege();
         return { ok: true, message: "攻军击退伏兵后夺取主据点，转入攻城", step: true, action: "move",
@@ -503,6 +800,11 @@ export class BattleEngine {
       }
       return this.#endActivation({ ok: true, message: "遭遇伏兵，当前行军已中断", step: true, action: "move",
         actorId: unit.id, cost, cautious, ambushes, interrupted: true, activationEnded: true });
+    }
+    if (unit.side === "enemy" && x === this.attackerCamp.x && y === this.attackerCamp.y) {
+      this.#finish("enemy", "camp", "守军攻占进攻方大本营，进攻军败退");
+      return { ok: true, action: "move", actorId: unit.id, cost, cautious, step: true, battleEnded: true,
+        winner: this.winner, message: this.outcomeReason };
     }
     if (unit.side === "ally" && x === this.stronghold.x && y === this.stronghold.y) {
       this.enterSiege();
@@ -517,11 +819,13 @@ export class BattleEngine {
 
   canAmbush(unit = this.activeUnit) {
     return this.status === "active" && this.phase === "field" && Boolean(unit) && unit.troops > 0 && !unit.inCity
+      && !this.#manualActionBlocked(unit)
       && !unit.ambushing && unit.actionPoints > 0 && getFieldConfig(this.rules).ambushTerrains.includes(this.terrainAt(unit.position.x, unit.position.y));
   }
 
   ambush() {
     const unit = this.activeUnit;
+    if (this.#manualActionBlocked(unit)) return this.#controlRejection();
     if (!this.canAmbush(unit)) return { ok: false, message: "仅树林或山地中的部队可以埋伏" };
     const audience = this.#eventAudience([unit]);
     unit.ambushing = true;
@@ -531,15 +835,18 @@ export class BattleEngine {
   }
 
   #attackDamage(attacker, defender) {
-    const type = UNIT_TYPES[attacker.unitType] ?? UNIT_TYPES.infantry;
+    const attack = attacker.combatStats ?? calculateCombatStats(attacker, this.rules);
+    const defense = defender.combatStats ?? calculateCombatStats(defender, this.rules);
     const terrain = this.rules.terrain[this.terrainAt(defender.position.x, defender.position.y)];
     const roll = 0.88 + this.rng() * 0.24;
-    const base = 190 + attacker.war * 3 + attacker.leadership * 1.7 + attacker.troops * 0.032;
-    return Math.max(120, Math.round(base * type.attack * roll * (1 - terrain.defense / 100)));
+    const attacksPerActivation = Math.max(1, Math.floor((attacker.activationActionPoints ?? attack.actionPoints) / attack.attackCost));
+    return Math.max(1, Math.round(attack.meleeAttack * getCombatConfig(this.rules).meleeDamageRate
+      / attacksPerActivation / defense.meleeDefense * roll * (1 - terrain.defense / 100)));
   }
 
   attack(targetId) {
     const attacker = this.activeUnit;
+    if (this.#manualActionBlocked(attacker)) return this.#controlRejection();
     const defender = this.getUnit(targetId);
     const cost = this.actionCost("attack", attacker);
     if (!attacker || attacker.actionPoints < cost) return { ok: false, message: "行动力不足，无法攻击" };
@@ -547,28 +854,96 @@ export class BattleEngine {
     attacker.ambushing = false;
     const audience = this.#eventAudience([attacker, defender]);
     attacker.actionPoints -= cost;
-    const damage = this.#attackDamage(attacker, defender);
-    defender.troops = Math.max(0, defender.troops - damage);
+    const damage = this.#damageUnit(defender, this.#attackDamage(attacker, defender), "melee");
     defender.morale = Math.max(0, defender.morale - 5);
+    this.#refreshUnitTroopStats(defender);
     this.#writeLog(`${attacker.name}猛攻${defender.name}，斩获 ${damage.toLocaleString()}，行动力 -${cost}。`, { audience });
     if (!audience.includes(defender.side)) this.#writeLog(`${defender.name}遭到攻击，损失 ${damage.toLocaleString()}。`, { audience: [defender.side] });
 
-    if (defender.troops > 0 && this.distance(attacker.position, defender.position) === 1 && this.rng() < 0.42) {
-      const counter = Math.max(80, Math.round((150 + defender.war * 2 + defender.troops * 0.018) * (0.84 + this.rng() * 0.2)));
-      attacker.troops = Math.max(0, attacker.troops - counter);
+    if (defender.troops > 0 && this.distance(attacker.position, defender.position) === 1
+      && this.rng() < getCombatConfig(this.rules).counterChance) {
+      const own = defender.combatStats, opposing = attacker.combatStats;
+      const terrain = this.rules.terrain[this.terrainAt(attacker.position.x, attacker.position.y)];
+      const counter = this.#damageUnit(attacker, Math.max(1, Math.round(own.meleeAttack * getCombatConfig(this.rules).counterDamageRate
+        / Math.max(1, Math.floor((attacker.activationActionPoints ?? opposing.actionPoints) / opposing.attackCost))
+        * (0.88 + this.rng() * 0.24) / opposing.meleeDefense * (1 - terrain.defense / 100))), "melee");
       attacker.morale = Math.max(0, attacker.morale - 3);
+      this.#refreshUnitTroopStats(attacker);
       this.#writeLog(`${defender.name}反击，${attacker.name}损失 ${counter.toLocaleString()}。`, { audience });
     }
     return this.#continueOrEnd({ ok: true, message: `造成 ${damage.toLocaleString()} 兵力伤亡`, damage, action: "attack", actorId: attacker.id, targetId: defender.id, cost });
   }
 
+  shoot(targetId) {
+    return this.#rangedAttack(targetId, "shoot");
+  }
+
+  fireArrow(targetId) {
+    return this.#rangedAttack(targetId, "fireArrow");
+  }
+
+  #rangedAttack(targetId, action) {
+    const attacker = this.activeUnit;
+    if (this.#manualActionBlocked(attacker)) return this.#controlRejection();
+    const defender = this.getUnit(targetId);
+    if (!attacker) return { ok: false, message: "没有可行动部队" };
+    const cost = this.actionCost(action, attacker);
+    const goldCost = this.strategyGoldCost(action);
+    const stats = attacker.combatStats ?? calculateCombatStats(attacker, this.rules);
+    if (stats.rangedTroops <= 0) return { ok: false, message: "部队未编入可射击兵种" };
+    if (attacker.actionPoints < cost) return { ok: false, message: "行动力不足，无法射击" };
+    if (this.supplies[attacker.side].gold < goldCost) return { ok: false, message: `随军金钱不足，火矢需要 ${goldCost} 金` };
+    if (!defender || !this.shootTargets(attacker, action).includes(defender)) return { ok: false, message: "目标不在射程或尚未发现" };
+
+    attacker.ambushing = false;
+    const audience = this.#eventAudience([attacker, defender]);
+    attacker.actionPoints -= cost;
+    this.supplies[attacker.side].gold -= goldCost;
+    const config = this.rangedConfig();
+    const terrain = this.rules.terrain[this.terrainAt(defender.position.x, defender.position.y)];
+    const defense = defender.combatStats ?? calculateCombatStats(defender, this.rules);
+    // Total shooter power is independent of non-shooters in this formation. A
+    // lone archer may shoot for one casualty, never for the whole army's power.
+    const rangedDamage = this.#damageUnit(defender, Math.max(1, Math.round(stats.rangedAttack * getCombatConfig(this.rules).rangedDamageRate
+      / defense.rangedDefense * (0.88 + this.rng() * 0.24) * (1 - terrain.defense / 100))), "ranged");
+    defender.morale = Math.max(0, defender.morale - (rangedDamage > 0 ? 3 : 0));
+    this.#refreshUnitTroopStats(defender);
+    const fireTriggered = action === "fireArrow" && defender.troops > 0
+      && this.rng() < Math.max(0, Math.min(1, config.fireArrowChance));
+    const fireDamage = fireTriggered ? this.#applySuccessfulFire(attacker, defender, { ranged: true }) : 0;
+    const damage = rangedDamage + fireDamage;
+    this.#writeLog(`${attacker.name}${action === "fireArrow" ? "施放火矢" : "齐射"}${defender.name}，造成 ${rangedDamage.toLocaleString()} 伤亡`
+      + `${fireTriggered ? `，引燃阵地再造成 ${fireDamage.toLocaleString()} 伤亡` : ""}，行动力 -${cost}${goldCost ? `，金钱 -${goldCost}` : ""}。`, { audience });
+    if (!audience.includes(defender.side)) this.#writeLog(`${defender.name}遭到${action === "fireArrow" ? "火矢" : "射击"}，损失 ${damage.toLocaleString()}。`, { audience: [defender.side] });
+    // Shooting never invokes the melee counterattack branch, even at one tile.
+    return this.#continueOrEnd({ ok: true, action, actorId: attacker.id, targetId: defender.id, cost, goldCost,
+      damage, rangedDamage, fireTriggered, fireDamage,
+      message: `${action === "fireArrow" ? "火矢" : "射击"}造成 ${damage.toLocaleString()} 伤亡${fireTriggered ? "，火计触发" : ""}` });
+  }
+
+  /** Shared successful effect. Callers own costs/chance; fire arrows never reroll fire(). */
+  #applySuccessfulFire(attacker, defender, { ranged = false } = {}) {
+    const terrain = this.terrainAt(defender.position.x, defender.position.y);
+    const terrainBonus = terrain === "forest" ? 1.3 : terrain === "river" ? 0.65 : 1;
+    const stats = attacker.combatStats ?? calculateCombatStats(attacker, this.rules);
+    const power = ranged ? stats.rangedFirePower : stats.firePower;
+    const damage = this.#damageUnit(defender, Math.max(1, Math.round(power * terrainBonus)), "fire");
+    // Arrow ignition impact scales with absolute shooter firepower, not with
+    // the fraction of infantry standing alongside those archers.
+    const moraleDamage = ranged ? Math.max(1, Math.min(11, Math.round(power / 50))) : 11;
+    defender.morale = Math.max(0, defender.morale - moraleDamage);
+    this.#refreshUnitTroopStats(defender);
+    return damage;
+  }
+
   fire(targetId) {
     const attacker = this.activeUnit;
+    if (this.#manualActionBlocked(attacker)) return this.#controlRejection();
     const defender = this.getUnit(targetId);
     const cost = this.actionCost("fire", attacker);
     if (!attacker || attacker.actionPoints < cost) return { ok: false, message: "行动力不足，无法施放火攻" };
     if (!defender || defender.inCity || defender.side === attacker.side || defender.troops <= 0
-      || !this.isUnitVisibleTo(defender, attacker.side) || this.distance(attacker.position, defender.position) > 2) {
+      || !this.isUnitVisibleTo(defender, attacker.side) || this.distance(attacker.position, defender.position) !== 1) {
       return { ok: false, message: "目标不在火攻范围或尚未发现" };
     }
     const goldCost = this.strategyGoldCost("fire");
@@ -583,33 +958,82 @@ export class BattleEngine {
       if (!audience.includes(defender.side)) this.#writeLog(`${defender.name}识破了敌军的火计。`, { audience: [defender.side] });
       return this.#continueOrEnd({ ok: true, message: "火攻失败", damage: 0, action: "fire", actorId: attacker.id, targetId: defender.id, cost, goldCost });
     }
-    const terrain = this.terrainAt(defender.position.x, defender.position.y);
-    const terrainBonus = terrain === "forest" ? 1.3 : terrain === "river" ? 0.65 : 1;
-    const damage = Math.max(160, Math.round((170 + attacker.intelligence * 4.2 + attacker.troops * 0.018) * terrainBonus));
-    defender.troops = Math.max(0, defender.troops - damage);
-    defender.morale = Math.max(0, defender.morale - 11);
+    const damage = this.#applySuccessfulFire(attacker, defender);
     this.#writeLog(`${attacker.name}火计成功！${defender.name}损失 ${damage.toLocaleString()}，行动力 -${cost}，金钱 -${goldCost}。`, { audience });
     if (!audience.includes(defender.side)) this.#writeLog(`${defender.name}遭到火攻，损失 ${damage.toLocaleString()}。`, { audience: [defender.side] });
     return this.#continueOrEnd({ ok: true, message: `火攻成功，造成 ${damage.toLocaleString()} 伤亡`, damage, action: "fire", actorId: attacker.id, targetId: defender.id, cost, goldCost });
   }
 
+  doubt(targetId) {
+    return this.#controlStrategy("doubt", targetId);
+  }
+
+  provoke(targetId) {
+    return this.#controlStrategy("provoke", targetId);
+  }
+
+  #controlStrategy(action, targetId) {
+    const actor = this.activeUnit;
+    if (this.#manualActionBlocked(actor)) return this.#controlRejection();
+    const target = this.getUnit(targetId);
+    if (!actor || !target || !this.strategyTargets(action, actor).includes(target)) {
+      return { ok: false, message: "计略需要邻接且已发现的敌军，不能重复施加同一状态，亦须足够行动力与金钱" };
+    }
+    const cost = this.actionCost(action, actor), goldCost = this.strategyGoldCost(action);
+    const success = this.rng() < strategySuccessChance(action, actor, target, this.rules);
+    if (success) {
+      const applied = applyBattleStatus(target, action === "doubt" ? "doubt" : "provocation", {
+        remainingActivations: getStrategyConfig(action, this.rules).durationActivations, sourceId: actor.id,
+        ...(action === "provoke" ? { lastKnownPosition: { ...actor.position }, active: false } : {})
+      });
+      if (!applied.ok) return { ok: false, message: applied.message };
+    }
+    actor.actionPoints -= cost;
+    actor.ambushing = false;
+    this.supplies[actor.side].gold -= goldCost;
+    const name = action === "doubt" ? "疑兵" : "挑衅";
+    const message = `${actor.name}向${target.name}施展${name}${success ? "成功" : "，被对方识破"}，行动力 -${cost}，金钱 -${goldCost}。`;
+    this.#writeLog(message, { units: [actor, target] });
+    return this.#continueOrEnd({ ok: true, action, actorId: actor.id, targetId: target.id, success,
+      effectApplied: success, damage: 0, cost, goldCost, message });
+  }
+
   wait() {
     const unit = this.activeUnit;
+    if (this.#manualActionBlocked(unit)) return this.#controlRejection();
     if (!unit) return { ok: false, message: "没有可行动部队" };
     unit.morale = Math.min(100, unit.morale + 2);
+    this.#refreshUnitTroopStats(unit);
     unit.actionPoints = 0;
     this.#writeLog(`${unit.name}结束行动，整队待命，士气 +2。`, { units: [unit] });
     return this.#endActivation({ ok: true, message: `${unit.name}结束行动`, action: "wait", actorId: unit.id });
   }
 
   runEnemyTurn() {
-    if (this.phase !== "field") return this.runAISiegeDecision();
+    return this.runAITurn(this.aiSide);
+  }
+
+  runAITurn(side = this.aiSide) {
+    if (this.phase !== "field") return this.runAISiegeDecision(side);
     const unit = this.activeUnit;
-    if (!unit || unit.side !== this.aiSide) return { ok: false, message: "当前并非敌军行动" };
+    if (!unit || unit.side !== side) return { ok: false, message: "当前并非该军行动" };
+    if (this.hasForcedAction(unit)) return this.runForcedTurn();
+    const strategies = ["fire", "doubt", "provoke"].flatMap((action) => this.strategyTargets(action, unit).map((target) => ({ action, target })));
+    if (unit.intelligence >= 70 && !unit.strategyAttempted && strategies.length) {
+      unit.strategyAttempted = true;
+      if (this.rng() < 0.25) {
+        const choice = strategies[Math.min(strategies.length - 1, Math.floor(this.rng() * strategies.length))];
+        return this[choice.action](choice.target.id);
+      }
+    }
+    const rangedTargets = this.shootTargets(unit).sort((a, b) => a.troops - b.troops);
+    if (rangedTargets.length) {
+      const target = rangedTargets[0];
+      if (this.fireArrowTargets(unit).includes(target) && this.rng() < 0.4) return this.fireArrow(target.id);
+      return this.shoot(target.id);
+    }
     const attackTargets = this.attackTargets(unit);
     if (attackTargets.length) return this.attack(attackTargets.sort((a, b) => a.troops - b.troops)[0].id);
-    const fireTargets = this.fireTargets(unit);
-    if (fireTargets.length && unit.intelligence >= 70 && this.rng() < 0.45) return this.fire(fireTargets[0].id);
 
     const enemies = this.visibleUnits(unit.side).filter((entry) => entry.side !== unit.side);
     if (this.canAmbush(unit) && (unit.side === "enemy" || enemies.reduce((sum, entry) => sum + entry.troops, 0) > unit.troops * 1.5)) return this.ambush();
@@ -617,7 +1041,8 @@ export class BattleEngine {
     const cautious = enemies.some((entry) => entry.ambushing && this.distance(unit.position, entry.position) <= unit.maxActionPoints + 1);
     const moves = this.reachableTiles(unit, { cautious });
     if (!moves.length) return this.wait();
-    const objectives = unit.side === "ally" ? [this.stronghold, ...enemies.map((enemy) => enemy.position)] : enemies.map((enemy) => enemy.position);
+    const objectives = unit.side === "ally" ? [this.stronghold, ...enemies.map((enemy) => enemy.position)]
+      : [this.attackerCamp, ...enemies.map((enemy) => enemy.position)];
     if (!objectives.length) return this.wait();
     const currentDistance = Math.min(...objectives.map((position) => this.distance(unit.position, position)));
     const best = moves.sort((a, b) => {
@@ -637,12 +1062,14 @@ export class BattleEngine {
 
   retreatToCity(unitId = this.activeUnit?.id) {
     const unit = this.activeUnit;
+    if (this.#manualActionBlocked(unit)) return this.#controlRejection();
     if (this.phase !== "field" || !unit || unit.id !== unitId || unit.side !== "enemy") {
       return { ok: false, message: "仅当前行动的守军可以退回城内" };
     }
     const audience = this.#eventAudience([unit]);
     unit.ambushing = false;
     unit.inCity = true;
+    this.#cancelProvocationsFrom(unit.id);
     unit.actionPoints = 0;
     this.#writeLog(`${unit.name}军收兵回城，保留现有兵力和士气。`, { audience });
     return this.#endActivation({ ok: true, action: "return", actorId: unit.id, message: `${unit.name}军已退回城内` });
@@ -651,9 +1078,10 @@ export class BattleEngine {
   enterSiege({ direct = false } = {}) {
     if (this.status !== "active" || this.phase !== "field") return { ok: false, message: "当前无法转入攻城" };
     this.phase = "siege_transition";
+    this.units.forEach((unit) => { clearBattleStatuses(unit, "siege"); unit.ambushing = false; });
     this.queue = [];
     this.siege.orders = { ally: null, enemy: null };
-    this.siege.troopCap = getSiegeConfig(this.rules).effectiveTroopCaps[this.wallLevel];
+    this.siege.troopCap = getSiegeConfig(this.rules).effectiveTroopCap;
     this.pendingDecision = !direct && this.fieldUnits("enemy").length
       ? { side: "enemy", kind: "external", options: ["return", ...(this.canDefenderRetreat ? ["retreat"] : [])] }
       : { side: "ally", kind: "encirclement", options: ["open", "encircle"] };
@@ -699,7 +1127,13 @@ export class BattleEngine {
       } else {
         const returning = this.livingUnits("enemy").filter((unit) => this.siege.returningUnitIds?.includes(unit.id));
         const returningTroops = returning.reduce((sum, unit) => sum + unit.troops, 0);
-        const losses = interceptionLosses(attacker, { ...aggregateAbilities(returning), troops: returningTroops }, this.wallLevel, this.rules);
+        const composition = {};
+        for (const unit of returning) {
+          for (const [id, count] of Object.entries(formationComposition(unit, this.rules))) composition[id] = (composition[id] ?? 0) + count;
+        }
+        const type = aggregateTroopStats(composition, this.rules);
+        const losses = interceptionLosses(attacker, { ...aggregateAbilities(returning), troops: returningTroops,
+          composition, troopAttack: type.attack, troopDefense: type.defense }, this.wallLevel, this.rules);
         const defenderLoss = this.#damageArmy("enemy", losses.defenderLoss, this.siege.returningUnitIds);
         const attackerLoss = this.#damageArmy("ally", losses.attackerLoss);
         this.#writeLog(`拦截归军：守方损失 ${defenderLoss.toLocaleString()}，攻方损失 ${attackerLoss.toLocaleString()}。`);
@@ -710,11 +1144,9 @@ export class BattleEngine {
     } else {
       this.siege.encirclement = action;
       if (action === "encircle") {
-        this.siege.layers.forEach((layer, index) => {
-          const extra = layer.maxHp * (Math.max(1, config.encirclementMultiplier) - 1);
-          layer.maxHp += extra;
-          if (index >= this.siege.activeLayerIndex) layer.hp += extra;
-        });
+        const extra = this.siege.maxHp * (Math.max(1, config.encirclementMultiplier) - 1);
+        this.siege.maxHp += extra;
+        this.siege.hp += extra;
       }
       this.pendingDecision = null;
       this.phase = "siege";
@@ -748,42 +1180,37 @@ export class BattleEngine {
     this.#writeLog(`第 ${this.day} 日：${ATTACK_ORDERS[attackOrder]} / ${DEFENSE_ORDERS[defenseOrder]}；攻方损失 ${result.attackerLoss}，守方损失 ${result.defenderLoss}，推进 ${result.progress.toFixed(1)}。`);
     this.#checkVictory();
     if (this.status === "active") {
-      // Repairs only reinforce today's current wall. A breached outer segment
-      // can never be resurrected, even if repairs exceed the incoming damage.
-      const layer = this.siege.layers[this.siege.activeLayerIndex];
-      if (layer && result.wallRepair > 0) {
-        const repaired = Math.min(result.wallRepair, layer.maxHp - layer.hp);
-        layer.hp += repaired;
-        this.#writeLog(`${layer.name}抢修恢复 ${repaired.toFixed(1)} 点墙体。`);
+      if (result.wallRepair > 0) {
+        const repaired = Math.min(result.wallRepair, this.siege.maxHp - this.siege.hp);
+        this.siege.hp += repaired;
+        this.#writeLog(`城墙抢修恢复 ${repaired.toFixed(1)} 点墙体。`);
       }
       const breach = damageSiegeLayers(this.siege, result.progress);
       for (const name of breach.breached) this.#writeLog(`${name}已被攻破。`);
       if (breach.conquered) this.#finish("ally", "siege", "全部城墙防线被突破，城池失守");
     }
-    if (this.status === "active") {
-      if (this.day >= this.rules.battleDayLimit) this.#finish("enemy", "time", "战役期限已至，攻方撤退");
-      else { this.day += 1; this.#prepareDay(); }
-    }
+    if (this.status === "active") this.#completeDay();
     return { ...result, action: "siege", dayCompleted: true, message: "双方攻守命令结算完毕",
+      ...(this.status === "paused" ? { monthPaused: true } : {}),
       ...(this.status === "ended" ? { battleEnded: true, winner: this.winner } : {}) };
   }
 
-  runAISiegeDecision() {
+  runAISiegeDecision(side = this.aiSide) {
     if (this.status !== "active") return { ok: false, message: "战斗已经结束" };
     const config = getSiegeConfig(this.rules);
     if (this.phase === "siege_transition") {
       const decision = this.pendingDecision;
-      if (!decision || decision.side !== this.aiSide) return { ok: false, message: "等待玩家决定" };
+      if (!decision || decision.side !== side) return { ok: false, message: "等待对方决定" };
       const attacker = this.getArmyStats("ally");
       const defender = this.getArmyStats("enemy");
       if (decision.kind === "external") return this.chooseTransition("return");
       if (decision.kind === "response") return this.chooseTransition(attacker.intelligence > defender.intelligence + config.aiDeceiveIntelligenceAdvantage ? "deceive" : "intercept");
       return this.chooseTransition("encircle");
     }
-    if (this.phase !== "siege" || this.siege.orders[this.aiSide]) return { ok: false, message: "等待玩家下令" };
-    const own = this.getArmyStats(this.aiSide);
-    const opposing = this.getArmyStats(this.playerSide);
-    if (this.aiSide === "ally") return this.siegeOrder("ally", this.cityDefense > config.aiTunnelDefenseThreshold && own.intelligence >= config.aiTunnelIntelligenceThreshold ? "tunnel"
+    if (this.phase !== "siege" || this.siege.orders[side]) return { ok: false, message: "等待对方下令" };
+    const own = this.getArmyStats(side);
+    const opposing = this.getArmyStats(side === "ally" ? "enemy" : "ally");
+    if (side === "ally") return this.siegeOrder("ally", this.cityDefense > config.aiTunnelDefenseThreshold && own.intelligence >= config.aiTunnelIntelligenceThreshold ? "tunnel"
       : own.troops > opposing.troops * config.aiAssaultTroopRatio ? "assault" : "ram");
     if (this.siege.encirclement === "open" && this.canDefenderRetreat && own.troops < opposing.troops * config.aiRetreatTroopRatio) return this.retreatArmy("enemy");
     return this.siegeOrder("enemy", own.morale < config.aiRotateMoraleThreshold ? "rotate" : this.cityDefense < config.aiRepairDefenseThreshold ? "repair"
@@ -807,23 +1234,15 @@ export class BattleEngine {
       safeRetreat: losses === 0, message: "守军已撤向其他己方城池" };
   }
 
-  #damageArmy(side, requested, onlyIds = null) {
+  #damageArmy(side, requested, onlyIds = null, damageType = "melee") {
     const units = this.livingUnits(side).filter((unit) => !onlyIds || onlyIds.includes(unit.id));
     const reserve = side === "enemy" && !onlyIds ? this.defenderReserveTroops : 0;
-    const total = units.reduce((sum, unit) => sum + unit.troops, reserve);
-    const loss = Math.min(total, Math.max(0, Math.floor(requested)));
-    if (!total || !loss) return 0;
-    const allocations = units.map((unit) => ({ unit, loss: Math.floor(loss * unit.troops / total) }));
-    let reserveLoss = Math.floor(loss * reserve / total);
-    let remaining = loss - reserveLoss - allocations.reduce((sum, entry) => sum + entry.loss, 0);
-    for (const entry of allocations) {
-      const extra = Math.min(remaining, entry.unit.troops - entry.loss);
-      entry.loss += extra;
-      remaining -= extra;
-      entry.unit.troops -= entry.loss;
-    }
-    reserveLoss += remaining;
-    if (reserve) this.defenderReserveTroops -= reserveLoss;
+    // Siege is one army: first apportion casualties by troop exposure across
+    // every participating formation, including the city's infantry reserves.
+    const reserves = { troops: reserve, composition: { infantry: reserve }, unitType: "infantry" };
+    const loss = applyArmyLosses([...units, ...(reserve ? [reserves] : [])], requested, this.rules, damageType);
+    for (const unit of units) this.#refreshUnitTroopStats(unit);
+    if (reserve) this.defenderReserveTroops = reserves.troops;
     return loss;
   }
 
@@ -835,7 +1254,8 @@ export class BattleEngine {
     let troops = escaped.reduce((sum, unit) => sum + unit.troops, 0);
     if (!fieldOnly && this.defenderReserveTroops > 0) {
       this.escapedDefenderUnits.push({ id: `escaped-reserve-${this.day}`, side: "enemy", officerId: null, officerIds: [],
-        name: "城内预备兵", troops: this.defenderReserveTroops, training: this.defenderReserveTraining, morale: this.defenderReserveMorale });
+        name: "城内预备兵", troops: this.defenderReserveTroops, composition: { infantry: this.defenderReserveTroops },
+        training: this.defenderReserveTraining, morale: this.defenderReserveMorale });
       troops += this.defenderReserveTroops;
       this.defenderReserveTroops = 0;
     }
@@ -852,22 +1272,33 @@ export class BattleEngine {
   }
 
   #endActivation(result) {
+    const endingUnit = this.activeUnit;
+    if (endingUnit) consumeActivationStatuses(endingUnit);
     this.#checkVictory();
     if (this.status !== "active") return { ...result, battleEnded: true, winner: this.winner };
     if (this.phase !== "field") return { ...result, phaseChanged: true };
     this.queue.shift();
     this.queue = this.queue.filter((id) => this.getUnit(id)?.troops > 0 && !this.getUnit(id)?.inCity);
     if (this.queue.length === 0) {
-      if (this.day >= this.rules.battleDayLimit) {
-        this.#finish("enemy", "time", "战役期限已至，攻方撤退");
-        return { ...result, battleEnded: true, winner: this.winner, timedOut: true };
-      }
-      this.day += 1;
-      this.#prepareDay();
+      this.#completeDay();
+      if (this.status === "paused") return { ...result, activationEnded: true, monthPaused: true };
       if (this.status !== "active") return { ...result, battleEnded: true, winner: this.winner };
-      this.#writeLog(`第 ${this.day} 日，双方重新整队并恢复行动力。`);
     }
     return { ...result, activationEnded: true };
+  }
+
+  #completeDay() {
+    if (this.campaignMode && this.day >= this.nextPauseDay) {
+      this.status = "paused";
+      this.queue = [];
+      this.#writeLog(`第 ${this.day} 日结束，战役转入月末休整，待下月继续。`);
+    } else if (!this.campaignMode && this.day >= (this.rules.battleDayLimit ?? 30)) {
+      this.#finish("enemy", "time", "战役期限已至，攻方撤退");
+    } else {
+      this.day += 1;
+      this.#prepareDay();
+      if (this.status === "active" && this.phase === "field") this.#writeLog(`第 ${this.day} 日，双方重新整队并恢复行动力。`);
+    }
   }
 
   #checkVictory() {
@@ -885,6 +1316,7 @@ export class BattleEngine {
   }
 
   #finish(winner, type, reason) {
+    this.units.forEach((unit) => { clearBattleStatuses(unit, "battleEnd"); });
     this.status = "ended";
     this.winner = winner;
     this.outcomeType = type;

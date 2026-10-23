@@ -6,13 +6,42 @@
   "trainingCap": 100,
   "moraleCap": 100,
   "army": {
-    "maxUnits": 5,
-    "maxOfficersPerUnit": 5,
+    "maxUnits": 8,
+    "maxOfficersPerUnit": 3,
+    "maxSupplyDays": 60,
     "uncommandedCapacity": 2000
+  },
+  "troopTypes": {
+    "infantry": { "name": "步兵", "unlocked": true, "attack": 1, "defense": 1, "actionPoints": 6, "initiative": 0, "attackCost": 3, "range": 0, "rangedAttack": 0, "rangedDefense": 1, "vision": 4, "equipment": {} },
+    "archer": { "name": "弓兵", "unlocked": true, "attack": 0.75, "defense": 0.8, "actionPoints": 6, "initiative": 4, "attackCost": 3, "range": 2, "rangedAttack": 0.95, "rangedDefense": 0.75, "vision": 4, "equipment": {} },
+    "heavyInfantry": { "name": "重步兵", "unlocked": true, "attack": 1.18, "defense": 1.35, "actionPoints": 5, "initiative": -2, "attackCost": 3, "range": 0, "rangedAttack": 0, "rangedDefense": 1.5, "vision": 4, "equipment": { "armor": 1 } },
+    "crossbowman": { "name": "劲弩兵", "unlocked": true, "attack": 0.85, "defense": 0.9, "actionPoints": 5, "initiative": 2, "attackCost": 3, "range": 2, "rangedAttack": 1.3, "rangedDefense": 0.9, "vision": 4, "equipment": { "crossbows": 1 } },
+    "cavalry": { "name": "骑兵", "unlocked": true, "attack": 1.25, "defense": 1, "actionPoints": 8, "initiative": 10, "attackCost": 4, "range": 0, "rangedAttack": 0, "rangedDefense": 1.05, "vision": 5, "equipment": { "horses": 1 } },
+    "raiderCavalry": { "name": "突骑兵", "technology": "raiderCavalry", "attack": 1.2, "defense": 1, "actionPoints": 8, "initiative": 12, "attackCost": 4, "range": 2, "rangedAttack": 1.1, "rangedDefense": 1, "vision": 5, "equipment": { "horses": 1, "crossbows": 1 } },
+    "heavyCavalry": { "name": "重骑兵", "technology": "heavyCavalry", "attack": 1.5, "defense": 1.4, "actionPoints": 7, "initiative": 6, "attackCost": 4, "range": 0, "rangedAttack": 0, "rangedDefense": 1.5, "vision": 5, "equipment": { "horses": 1, "armor": 1 } },
+    "guard": { "name": "近卫队", "technology": "guard", "attack": 1.2, "defense": 1.4, "actionPoints": 5, "initiative": 0, "attackCost": 3, "range": 2, "rangedAttack": 1.25, "rangedDefense": 1.55, "vision": 4, "equipment": { "crossbows": 1, "armor": 1 } },
+    "dragoon": { "name": "龙骑兵", "technology": "dragoon", "attack": 1.5, "defense": 1.4, "actionPoints": 7, "initiative": 8, "attackCost": 4, "range": 2, "rangedAttack": 1.3, "rangedDefense": 1.5, "vision": 5, "equipment": { "horses": 1, "crossbows": 1, "armor": 1 } },
+    "elephant": { "name": "象兵", "technology": "elephant", "attack": 1.6, "defense": 1.25, "actionPoints": 4, "initiative": -5, "attackCost": 4, "range": 0, "rangedAttack": 0, "rangedDefense": 1.1, "vision": 4, "equipment": {} },
+    "rattan": { "name": "藤甲兵", "technology": "rattan", "attack": 1.1, "defense": 1.5, "actionPoints": 6, "initiative": 0, "attackCost": 3, "range": 0, "rangedAttack": 0, "rangedDefense": 1.65, "vision": 4, "equipment": {} }
   },
   "tasks": {
     "defaultTiming": "turn_end",
     "actions": {}
+  },
+  "equipment": {
+    "initialRatios": { "horses": 0.2, "crossbows": 0.15, "armor": 0.25 }
+  },
+  "research": {
+    "monthlyGain": 100,
+    "initialPoints": 0
+  },
+  "technologies": {
+    "raiderCavalry": { "name": "骑射战法", "unitType": "raiderCavalry", "cost": 200, "description": "解锁突骑兵：消耗良马和劲弩，兼具机动与射击能力。" },
+    "heavyCavalry": { "name": "具装铁骑", "unitType": "heavyCavalry", "cost": 300, "description": "解锁重骑兵：消耗良马和甲胄，强化正面冲击与防护。" },
+    "guard": { "name": "近卫军制", "unitType": "guard", "cost": 300, "description": "解锁近卫队：消耗劲弩和甲胄，兼具坚固防护与射击能力。" },
+    "dragoon": { "name": "龙骑军制", "unitType": "dragoon", "cost": 500, "description": "解锁龙骑兵：消耗良马、劲弩和甲胄，编成重装射击骑兵。" },
+    "elephant": { "name": "驭象之术", "unitType": "elephant", "cost": 400, "description": "解锁象兵编组；已预留特殊将领与地域解锁接口。" },
+    "rattan": { "name": "藤甲工艺", "unitType": "rattan", "cost": 300, "description": "解锁藤甲兵编组；已预留特殊将领与地域解锁接口。" }
   },
   "economy": {
     "foodPerThousandPerMonth": 120,
@@ -56,6 +85,52 @@
     "march": 100
   },
   "battle": {
+    "strategies": {
+      "range": 1,
+      "doubt": { "durationActivations": 1, "actionPoints": 2, "goldCost": 50, "chanceBase": 0.45, "intelligenceDivisor": 150, "minChance": 0.2, "maxChance": 0.85 },
+      "provoke": { "durationActivations": 1, "actionPoints": 2, "goldCost": 50, "chanceBase": 0.45, "intelligenceDivisor": 150, "minChance": 0.2, "maxChance": 0.85 }
+    },
+    "casualties": {
+      "profiles": {
+        "melee": { "default": 1, "infantry": 2, "archer": 1, "heavyInfantry": 2, "crossbowman": 1, "cavalry": 1, "raiderCavalry": 1, "heavyCavalry": 1, "guard": 1.5, "dragoon": 1, "elephant": 1, "rattan": 2 },
+        "ranged": { "default": 1, "infantry": 1.2, "archer": 1, "heavyInfantry": 1.2, "crossbowman": 1, "cavalry": 1, "raiderCavalry": 1, "heavyCavalry": 1, "guard": 1.1, "dragoon": 1, "elephant": 1, "rattan": 1.2 },
+        "fire": { "default": 1, "infantry": 1, "archer": 1, "heavyInfantry": 1, "crossbowman": 1, "cavalry": 1, "raiderCavalry": 1, "heavyCavalry": 1, "guard": 1, "dragoon": 1, "elephant": 1, "rattan": 1 },
+        "attrition": { "default": 1, "infantry": 1, "archer": 1, "heavyInfantry": 1, "crossbowman": 1, "cavalry": 1, "raiderCavalry": 1, "heavyCavalry": 1, "guard": 1, "dragoon": 1, "elephant": 1, "rattan": 1 }
+      }
+    },
+    "ranged": {
+      "shootActionPoints": 2,
+      "fireArrowActionPoints": 3,
+      "fireArrowGoldCost": 30,
+      "fireArrowChance": 0.3
+    },
+    "combatStats": {
+      "attackBase": 0.6,
+      "warDivisor": 200,
+      "commandAttackBase": 0.6,
+      "commandAttackDivisor": 250,
+      "trainingAttackBase": 0.75,
+      "trainingAttackDivisor": 400,
+      "moraleAttackBase": 0.75,
+      "moraleAttackDivisor": 400,
+      "defenseBase": 0.8,
+      "commandDefenseDivisor": 400,
+      "trainingDefenseBase": 0.9,
+      "trainingDefenseDivisor": 800,
+      "moraleDefenseBase": 0.9,
+      "moraleDefenseDivisor": 800,
+      "leadershipMobilityThreshold": 85,
+      "trainingMobilityThreshold": 75,
+      "lowMoraleThreshold": 40,
+      "meleeDamageRate": 0.16,
+      "rangedDamageRate": 0.16,
+      "counterChance": 1,
+      "counterDamageRate": 0.19,
+      "fireBase": 170,
+      "fireIntelligenceFactor": 4.2,
+      "fireTroopFactor": 0.018,
+      "fireArrowDamageRate": 0.12
+    },
     "field": {
       "movementScale": 0.5,
       "attackCostScale": 0.5,
@@ -72,13 +147,15 @@
       "fire": 50
     },
     "siege": {
+      "effectiveTroopCap": 30000,
+      "hitPointsByLevel": { "1": 100, "2": 160, "3": 220 },
       "effectiveTroopCaps": {
         "1": 20000,
         "2": 35000,
         "3": 50000
       },
       "layerHp": 100,
-      "baseProgressPerThousand": 1.3,
+      "baseProgressPerThousand": 3,
       "defenseProgressPenalty": 0.006,
       "minimumProgressMultiplier": 0.25,
       "attackerLossRate": 0.018,
@@ -190,7 +267,14 @@
   },
   "personnel": {
     "searchCost": 100,
-    "employCost": 200
+    "employCost": 200,
+    "enemyEmployMaxLoyalty": 60
+  },
+  "stratagems": {
+    "rumor": { "cost": 150, "baseChance": 0.4, "intelligenceScale": 0.004, "minChance": 0.1, "maxChance": 0.95, "supportLoss": 12, "moraleLoss": 8 },
+    "discord": { "cost": 200, "baseChance": 0.35, "intelligenceScale": 0.004, "minChance": 0.1, "maxChance": 0.95, "loyaltyLoss": 15 },
+    "surrender": { "cost": 500, "baseChance": 0.15, "charmScale": 0.004, "minChance": 0.05, "maxChance": 0.85, "maxCityRatio": 1, "maxTroopRatio": 0.65 },
+    "prepareAmbush": { "cost": 200, "bonus": 0.25, "durationMonths": 3 }
   },
   "diplomacy": {
     "goodwillCost": 300,
@@ -224,6 +308,27 @@
       "base": 8,
       "stat": "politics",
       "expense": 100
+    },
+    "breedHorses": {
+      "base": 150,
+      "stat": "politics",
+      "statDivisor": 0.2,
+      "expense": 240,
+      "resource": "horses"
+    },
+    "craftArmor": {
+      "base": 150,
+      "stat": "politics",
+      "statDivisor": 0.2,
+      "expense": 220,
+      "resource": "armor"
+    },
+    "craftCrossbows": {
+      "base": 150,
+      "stat": "politics",
+      "statDivisor": 0.2,
+      "expense": 200,
+      "resource": "crossbows"
     }
   },
   "recruit": {

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>52三国志 · 持续状态验收</title>
+<link rel="stylesheet" href="../dist/styles/main.css"><link rel="stylesheet" href="../dist/styles/classic-theme.css">
+<link rel="stylesheet" href="../dist/styles/warfare.css"><link rel="stylesheet" href="../dist/styles/typography.css"><link rel="stylesheet" href="../dist/styles/military.css">
+<style>
+body{min-height:100vh;padding:24px;background:url('../dist/assets/ui/cloud-brocade.svg'),linear-gradient(120deg,#30494a,#1d3234);overflow:auto;color:#e7dbb6}
+.qa-shell{max-width:1100px;margin:auto}.qa-head{display:flex;align-items:center;gap:20px;margin-bottom:18px}.qa-head img{width:64px}.qa-head h1{font:30px var(--display);margin:0}.qa-head p{font-size:12px;color:#c4c7b5}
+.qa-tools{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.qa-main{display:grid;grid-template-columns:1.8fr 1fr;gap:18px}.qa-board{position:relative;aspect-ratio:13/9.5;background:#647959;border:3px double #b6a06b}
+.qa-panel{padding:18px;color:#394d40;background:url('../dist/assets/ui/paper-fibers.svg'),linear-gradient(110deg,#f2e9d3,#e7dcc0 80%);border:3px double #b6a06b}.qa-panel h2{font:23px var(--display);margin:0 0 12px}.qa-panel p{font-size:13px;line-height:1.8}.qa-panel .unit-control-status{color:#6a382c;background:#bd9b6733}.qa-log{font-size:12px;line-height:1.8;max-height:180px;overflow:auto}.qa-note{font-size:12px;color:#ccceb6}
+@media(max-width:750px){.qa-main{grid-template-columns:1fr}}
+</style>
+<div class="qa-shell"><header class="qa-head"><img src="../dist/assets/seal.svg" alt="伍贰三国印"><div><h1>战斗状态 · 多次行动验收</h1><p>真实战斗引擎及状态组件 · 临时三次持续配置 · 不读写游戏存档</p></div></header>
+<div class="qa-tools"><button class="btn" data-scenario="doubt">疑兵三次</button><button class="btn" data-scenario="provoke">挑衅三次</button><button class="btn" data-scenario="mixed">疑兵一次＋挑衅三次</button><button class="btn btn-primary" id="step">处理一个动作</button><button class="btn" id="next">推进到下次行动</button></div>
+<div class="qa-main"><div class="qa-board" id="field" aria-label="测试战场"></div><aside class="qa-panel"><h2 id="title"></h2><p id="summary"></p><div id="statuses" aria-live="polite"></div><p>持续次数仅在整次行动结束时扣除；逐格移动、连续攻击不会重复扣减。</p><div class="qa-log" id="log" aria-live="polite"></div></aside></div>
+<p class="qa-note">正式游戏仍默认一次。此页仅测试疑兵／挑衅跨行动延续，不代表已经实现战斗跨月存档。</p></div>
+<script type="module">
+import { BattleEngine } from '../dist/js/game/battle.js';
+import { battleStatusLabels, runAutomaticBattleStep } from '../dist/js/ui/battle-automation.js';
+import { fieldTilesMarkup } from '../dist/js/ui/field-view.js';
+import { escapeHtml } from '../dist/js/ui/components.js';
+if(location.port!=='4174') throw new Error('仅供独立本地验收端口');
+const originalRules=await (await fetch('../dist/data/rules.json')).json();
+let battle,target;
+function render(result){
+  document.querySelector('#title').textContent=`第 ${battle.day} 日 · ${target.name}`;
+  document.querySelector('#summary').textContent=`当前行动：${battle.activeUnit?.name ?? '结束'} · 目标剩余行动力 ${target.actionPoints} / ${target.maxActionPoints}`;
+  document.querySelector('#statuses').innerHTML=battleStatusLabels(target).map(label=>`<p class="unit-control-status">${escapeHtml(label)}</p>`).join('')||'<p class="unit-control-status">控制已解除，可自由行动</p>';
+  document.querySelector('#field').innerHTML=fieldTilesMarkup(battle,{animatedUnitId:result?.actorId,animatedTargetId:result?.targetId,animationClass:result?.step?'unit-step':result?.action==='attack'?'is-striking':null});
+  document.querySelector('#log').innerHTML=battle.getVisibleLog(battle.playerSide).slice(0,8).map(entry=>`<p>${entry.day}日 · ${escapeHtml(entry.message)}</p>`).join('');
+  document.querySelector('#step').disabled=battle.activeUnit?.id!==target.id||!battle.hasForcedAction();
+  document.querySelector('#next').disabled=battle.activeUnit?.id===target.id;
+}
+function setup(scenario){
+  const rules=structuredClone(originalRules);
+  rules.battle.strategies.doubt.durationActivations=scenario==='mixed'?1:3;
+  rules.battle.strategies.provoke.durationActivations=3;
+  const officers=['曹操','夏侯惇','张绣','贾诩'].map((name,i)=>({id:`officer-${i}`,name,rank:'大将',status:'active',factionId:i<2?'a':'b',war:65,intelligence:85,leadership:90}));
+  const city=(id,ids)=>({id,name:id==='a'?'许昌':'宛',factionId:id,officerIds:ids,troops:40000,food:100000,gold:2000,training:80,morale:80});
+  const form=id=>({officerIds:[id],troops:20000,composition:{infantry:20000}});
+  battle=new BattleEngine({sourceCity:city('a',['officer-0','officer-1']),targetCity:city('b',['officer-2','officer-3']),officers,rules,
+    divisions:[form('officer-0'),form('officer-1')],defenderDivisions:[form('officer-2'),form('officer-3')],supplies:{food:100000,gold:2000},playerSide:'enemy',rng:()=>0,
+    map:{width:13,height:9,stronghold:{x:12,y:4},terrain:Array(117).fill('plain'),attackerStarts:[{x:2,y:4},{x:0,y:8}],defenderStarts:[{x:3,y:4},{x:12,y:8}]}});
+  const caster=battle.livingUnits('ally')[0];target=battle.livingUnits('enemy')[0];
+  battle.queue=[caster.id,target.id,...battle.units.filter(unit=>![caster.id,target.id].includes(unit.id)).map(unit=>unit.id)];
+  if(scenario!=='doubt') battle.provoke(target.id);
+  if(scenario!=='provoke') battle.doubt(target.id);
+  if(battle.activeUnit===caster) battle.wait();
+  render();
+}
+document.querySelectorAll('[data-scenario]').forEach(button=>button.addEventListener('click',()=>setup(button.dataset.scenario)));
+document.querySelector('#step').addEventListener('click',()=>render(runAutomaticBattleStep(battle)));
+document.querySelector('#next').addEventListener('click',()=>{
+  for(let n=0;n<20&&battle.status==='active'&&battle.activeUnit?.id!==target.id;n++) battle.hasForcedAction()?battle.runForcedTurn():battle.wait();
+  render();
+});
+setup('mixed');
+</script></html>

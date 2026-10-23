@@ -1,6 +1,7 @@
 import { getCity, getOfficer } from "../game/rules.js";
 import { taskIsActive, taskLedgerRecords } from "../game/monthly-settlement.js";
 import { escapeHtml as esc, number, openDialog } from "./components.js";
+import { EQUIPMENT_KEYS, EQUIPMENT_NAMES } from "../game/equipment.js";
 
 export { taskIsActive } from "../game/monthly-settlement.js";
 
@@ -53,13 +54,13 @@ export function createTaskUI({ getState, onSelectCity }) {
       const remaining = Math.max(0, task.dueTurn - currentTurn);
       const duration = Math.max(1, task.dueTurn - task.submittedTurn);
       const progress = active ? Math.min(95, Math.max(6, 100 * (1 - remaining / duration))) : 100;
-      const status = task.status === "awaiting_battle" ? "等待战斗" : task.status === "running" ? `余 ${remaining} 回合` : task.status === "failed" ? "未能完成" : "已完成";
+      const status = task.status === "in_battle" ? "跨月作战中" : task.status === "awaiting_battle" ? "等待战斗" : task.status === "running" ? `余 ${remaining} 回合` : task.status === "failed" ? "未能完成" : "已完成";
       const actors = (task.officerIds ?? []).map((id) => getOfficer(state, id)?.name ?? "已离任").join("、");
       return `<article class="task-record ${esc(task.status)}">
         <div class="task-record-heading"><strong>${esc(task.title ?? task.kind)}</strong><span class="task-state">${status}</span></div>
         <p class="task-location"><button type="button" class="text-button" data-task-city="${esc(city?.id ?? "")}" ${city ? "" : "disabled"}>${esc(city?.name ?? "原城池")}</button>${target ? ` → ${esc(target.name)}` : ""}<span>${esc(actors)}</span></p>
         <div class="task-progress" aria-hidden="true"><i style="width:${progress}%"></i></div>
-        <p class="task-record-result">${esc(active ? task.status === "awaiting_battle" ? "军队已集结，等待战场结算。" : `已签发，任务成果尚未生效。${task.kind === "transfer" ? ` 运送兵 ${number(task.payload.troops)} · 金 ${number(task.payload.gold)} · 粮 ${number(task.payload.food)}。` : ""}` : task.result?.message ?? task.message ?? "任务已结算。")}</p>
+        <p class="task-record-result">${esc(active ? task.status === "in_battle" ? "部队持续在战场作战，每月最多推进30日，参战将领继续占用。详见顶部战役簿。" : task.status === "awaiting_battle" ? "军队已集结，等待战场结算。" : `已签发，任务成果尚未生效。${task.kind === "transfer" ? ` 运送兵 ${number(task.payload.troops)} · 金 ${number(task.payload.gold)} · 粮 ${number(task.payload.food)}${EQUIPMENT_KEYS.filter((key) => task.payload[key] > 0).map((key) => ` · ${EQUIPMENT_NAMES[key]} ${number(task.payload[key])}`).join("")}。` : ""}` : task.result?.message ?? task.message ?? "任务已结算。")}</p>
       </article>`;
     };
     const renderLedger = () => {

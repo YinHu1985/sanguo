@@ -14,7 +14,7 @@ export async function chooseLoadSlot(saves, { inGame = false } = {}) {
   if (!saves.length) return null;
   const body = document.createElement("div");
   body.className = "save-selection";
-  body.innerHTML = `<p class="modal-description">选择要读取的征程。手动存档独立保留，不会被自动存档覆盖。战斗中途刷新仍从该场战役开头继续，不重复扣出征物资。</p>
+  body.innerHTML = `<p class="modal-description">选择要读取的征程。手动存档独立保留，不会被自动存档覆盖。战场按已保存的动作继续，跨月阵地与钱粮均保留，不会重新开战或重复扣出征物资。</p>
     <div class="save-slot-list">${saves.map((save, index) => saveCardMarkup(save, index === 0)).join("")}</div>
     <p class="save-selection-note">读取手动存档或上一局快照时，会先把当前活动存档保留为新的上一局快照。</p>`;
   return openDialog({ title: "读取存档", content: body, confirmText: "读取此档", cancelText: inGame ? "返回菜单" : "返回主菜单",
@@ -36,7 +36,7 @@ export async function saveGameDialog({ getSlots, onSave }) {
   body.className = "save-selection";
   body.innerHTML = `<p class="modal-description">选择一个手动存档位。保存当前月份、钱粮、武将与任务进度；之后的自动存档和新游戏不会覆盖这些记录。</p>
     <div class="save-slot-list">${slots.map((slot) => saveCardMarkup(slot, slot.id === selectedId)).join("")}</div>
-    <p class="save-selection-note">自动存档仍然持续更新。此处只保存战略局面，不保存战斗中的逐日状态。</p>`;
+    <p class="save-selection-note">自动存档仍然持续更新。手动记录同时保存战略局面与所有跨月战场；月间暂停的战役可以正常存档。</p>`;
   return openDialog({ title: "保存游戏", content: body, confirmText: "保存至此处", cancelText: "返回菜单",
     onConfirm: async () => {
       const slotId = body.querySelector('input[name="save-slot"]:checked')?.value;

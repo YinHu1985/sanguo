@@ -1,0 +1,20 @@
+.war-ledger-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.war-record { border: 3px double #9e8a5f; background: #fcf5e3b0; padding: 16px; box-shadow: inset 0 0 20px #b0955830; }
+.war-record.ended { opacity: .85; }
+.war-record header { display: flex; gap: 12px; justify-content: space-between; align-items: start; border-bottom: 1px solid #b6a37a; padding-bottom: 10px; }
+.war-record h3 { margin: 4px 0 0; font: 25px var(--display); color: #344a40; }
+.war-status { font-size: 11px; color: #803f2e; text-align: right; }
+.war-sides { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 15px 0; }
+.war-sides span { display: grid; gap: 5px; }
+.war-sides span:last-child { text-align: right; }
+.war-sides small { font-size: 11px; color: #73755c; }
+.war-sides strong { font-size: 17px; color: #334c40; }
+.war-sides b { font-size: 13px; font-weight: 500; }
+.war-sides i { color: #957646; font: 18px var(--display); }
+.war-progress, .war-result { font-size: 12px; line-height: 1.8; }
+.war-progress { background: #3047390d; border-left: 3px solid #ae9561; padding: 8px; }
+.war-record footer { display: flex; gap: 8px; }
+.strategy-screen .map-world .city-node.at-war .pin { outline: 2px solid #ab3e2a; box-shadow: 0 0 0 4px #b346262b; }
+.war-city-mark { display: inline-block; color: #9d3425; margin-left: 3px; font-size: 10px; }
+.city-node.active .war-city-mark { color: #ffe29b; }
+@media(max-width: 720px) { .war-ledger-grid { grid-template-columns: 1fr; } }

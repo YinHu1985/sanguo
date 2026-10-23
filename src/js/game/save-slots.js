@@ -24,6 +24,10 @@ export function isPlayableSave(saved, scenarioId) {
     && recordsWithIds(saved.officers) && recordsWithIds(saved.factions)
     && (saved.tasks == null || Array.isArray(saved.tasks) && saved.tasks.every(isRecord))
     && (saved.pendingInvasions == null || Array.isArray(saved.pendingInvasions) && saved.pendingInvasions.every(isRecord))
+    && (saved.warCampaignsVersion !== 1 || recordsWithIds(saved.battles)
+      && new Set(saved.battles.map((record) => record.id)).size === saved.battles.length
+      && saved.battles.every((record) => ["active", "paused", "ended"].includes(record.status) && isRecord(record.snapshot)
+        && record.snapshot.status === record.status && (record.status === "ended" || isRecord(record.snapshot.map))))
     && saved.factions.some((faction) => faction.id === saved.playerFactionId);
 }
 
@@ -62,7 +66,7 @@ function readSlot(slot, scenarioId, storage) {
 
 function hasPendingResolution(saved) {
   return Boolean(saved.turnResolution || saved.tasks?.some((task) => task.status === "awaiting_battle")
-    || saved.pendingInvasions?.some((order) => !order.resolved));
+    || saved.pendingInvasions?.some((order) => !order.resolved) || saved.battles?.some((battle) => battle.status === "active"));
 }
 
 function summarizeSlot(slot, saved) {

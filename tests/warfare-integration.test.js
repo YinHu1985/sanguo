@@ -136,7 +136,7 @@ test("field and siege together allow exactly thirty funded days, with no extra r
 
 test("siege army power caps both sides independently while reserve numbers still consume full grain", () => {
   const army = { troops: 1000000, leadership: 80, training: 80, morale: 80, intelligence: 80, war: 80 };
-  for (const [level, cap] of [[1, 20000], [2, 35000], [3, 50000]]) {
+  for (const [level, cap] of [[1, 30000], [2, 30000], [3, 30000]]) {
     const oversized = evaluateSiegeDay({ attacker: army, defender: army, wallLevel: level, cityDefense: 80, attackOrder: "ram", defenseOrder: "rotate" }, rules);
     const limited = evaluateSiegeDay({ attacker: { ...army, troops: cap }, defender: { ...army, troops: cap },
       wallLevel: level, cityDefense: 80, attackOrder: "ram", defenseOrder: "rotate" }, rules);
@@ -158,7 +158,7 @@ test("five-dimensional group and army abilities use per-dimension maxima instead
   const battle = createBattle();
   const group = battle.livingUnits("ally")[0];
   assert.equal(group.troops, 5000);
-  assert.equal(group.commandLimit, 12000);
+  assert.equal(group.commandLimit, rules.ranks["君主"], "only the leading commander provides capacity, while abilities still use all officers");
   assert.equal(group.war, 99);
   assert.equal(group.intelligence, 98);
   assert.equal(group.leadership, 90);

@@ -1,0 +1,33 @@
+<!doctype html><meta charset="utf-8"><title>军备与兵制独立验收</title>
+<h1>军备与兵制验收</h1><p>仅在 4174 端口准备测试存档，不影响 4173 的游戏进度。</p>
+<button data-case="strategy">准备科技、军备与混编验收</button>
+<button data-case="battle">准备混编野战验收</button><pre id="status"></pre>
+<script type="module">
+import { createInitialState, saveState } from '../dist/js/game/state.js';
+import { applyAtlasToScenario } from '../dist/js/game/atlas.js';
+import { queueTask, settleTasks } from '../dist/js/game/tasks.js';
+import { beginTurnResolution } from '../dist/js/game/turn-flow.js';
+if(location.port !== '4174') throw new Error('仅供独立验收端口');
+const [raw,rules,atlas] = await Promise.all(['scenario','rules','strategic-atlas'].map(async name => (await fetch(`../dist/data/${name}.json`)).json()));
+document.querySelectorAll('button').forEach(button => button.addEventListener('click', () => {
+  try {
+    const state = createInitialState(applyAtlasToScenario(raw,atlas),rules);
+    Object.assign(state,{started:true,playerFactionId:'cao-cao',selectedCityId:'xuchang',lastTurnOpening:`${state.year}-${state.month}`});
+    const home = state.cities.find(city=>city.id==='xuchang');
+    const foe = state.cities.find(city=>city.id==='wan');
+    Object.assign(home,{troops:30000,food:100000,gold:15000,horses:8000,crossbows:7000,armor:9000});
+    state.factions.find(f=>f.id===state.playerFactionId).researchPoints=650;
+    if(button.dataset.case==='battle') {
+      const ids=home.officerIds.filter(id=>state.officers.find(o=>o.id===id)?.status==='active').slice(0,2);
+      const divisions=[{id:'mixed-qa',officerIds:ids,troops:6000,composition:{infantry:1000,archer:1500,heavyInfantry:1500,crossbowman:1000,cavalry:1000}}];
+      const result=queueTask(state,{kind:'march',cityId:home.id,officerIds:ids,payload:{targetId:foe.id,divisions,supplies:{food:20000,gold:1000}}},rules);
+      if(!result.ok)throw new Error(result.message);
+      beginTurnResolution(state);
+      const report=settleTasks(state,rules,{targetTurn:1});
+      if(!report.ok)throw new Error(report.message);
+    }
+    saveState(state);
+    location.href='../dist/?qa=military';
+  } catch(error) { document.querySelector('#status').textContent=error.stack; }
+}));
+</script>

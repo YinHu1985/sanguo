@@ -74,8 +74,8 @@ test("manual defender can fire using city money and can move after attacking", (
   const defender = activate(battle, "enemy");
   const invader = battle.livingUnits("ally")[0];
   defender.position = { x: 8, y: 2 };
-  // A clear vertical sight line isolates strategy costs from forest occlusion.
-  invader.position = { x: 8, y: 0 };
+  // All active stratagems now require adjacency; this clear tile isolates costs.
+  invader.position = { x: 8, y: 1 };
   const startingTroops = invader.troops;
   assert.ok(battle.fireTargets().includes(invader));
   const result = battle.fire(invader.id);
@@ -109,7 +109,8 @@ test("AI drives the invading side toward player defenders one grid step at a tim
 });
 
 test("AI invading troops attack the player instead of targeting their own side", () => {
-  const battle = makeBattle();
+  // Decline the optional stratagem branch to exercise the normal melee choice.
+  const battle = makeBattle({ rng: () => 0.99 });
   const invader = activate(battle, "ally");
   const defender = battle.livingUnits("enemy")[0];
   invader.position = { x: 7, y: 2 };
@@ -127,7 +128,7 @@ test("AI invading officers can use fire with their own carried money", () => {
   const battle = makeBattle();
   const invader = activate(battle, "ally");
   const defender = battle.livingUnits("enemy")[0];
-  invader.position = { x: 8, y: 0 };
+  invader.position = { x: 8, y: 1 };
   defender.position = { x: 8, y: 2 };
   const result = battle.runEnemyTurn();
   assert.equal(result.ok, true);

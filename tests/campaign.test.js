@@ -215,7 +215,7 @@ test("AI departure takes real cargo and its own march expense while reserving th
   const before = structuredClone(state.cities[1]);
   const invasion = runWorldTurn(state, rules, () => 0).battles[0];
   assert.ok(invasion);
-  assert.equal(invasion.supplies.food, dailyFoodCost(invasion.troops, rules) * rules.battleDayLimit);
+  assert.equal(invasion.supplies.food, dailyFoodCost(invasion.troops, rules) * rules.army.maxSupplyDays);
   assert.ok(state.cities[1].food >= monthlyFoodCost(state.cities[1].troops, rules));
   assert.equal(state.cities[1].food + invasion.supplies.food, before.food);
   assert.equal(state.cities[1].gold + invasion.supplies.gold + rules.actions.march, before.gold);

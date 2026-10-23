@@ -2,6 +2,7 @@ import { getCity, mergeTroops } from "./rules.js";
 import { resolveOccupation } from "./campaign.js";
 import { formationOfficerIds } from "./army.js";
 import { normalizeCityDefense } from "./city-defense.js";
+import { addEquipment, EQUIPMENT_KEYS, equipmentAvailable, sumEquipment } from "./troops.js";
 
 const validAmount = (value) => Number.isSafeInteger(value) && value >= 0;
 const validQuality = (value) => Number.isFinite(value) && value >= 0 && value <= 100;
@@ -13,6 +14,39 @@ const weightedQuality = (units, key, fallback) => {
 export function remainingCityDefense(battle, city) {
   const defense = battle.cityDefense ?? city.defense ?? 100;
   return validQuality(defense) ? defense : null;
+}
+
+/** A defender keeps a shadow warehouse during combat; reconcile it once at settlement. */
+export function settleDefenderEquipment(target, battle, { keepSurvivors = true } = {}) {
+  const committed = battle.defenderEquipmentCommitted;
+  if (!committed) return { ok: true }; // Old in-progress saves did not have equipment.
+  const survivors = battle.units.filter((unit) => unit.side === "enemy" && unit.troops > 0);
+  const escaped = battle.escapedDefenderUnits ?? [];
+  const remaining = sumEquipment([...survivors, ...escaped], battle.rules);
+  if (!equipmentAvailable(target, committed) || EQUIPMENT_KEYS.some((key) => remaining[key] > (committed[key] ?? 0))) {
+    return { ok: false, message: "守军装备库存或战损数据无效" };
+  }
+  for (const key of EQUIPMENT_KEYS) target[key] = (target[key] ?? 0) - (committed[key] ?? 0);
+  if (keepSurvivors) addEquipment(target, sumEquipment(survivors, battle.rules));
+  return { ok: true };
+}
+
+export function survivingAttackerEquipment(battle) {
+  if (!battle.attackerEquipmentCommitted) return { ok: true, equipment: {} };
+  const equipment = sumEquipment(battle.units.filter((unit) => unit.side === "ally" && unit.troops > 0), battle.rules);
+  if (EQUIPMENT_KEYS.some((key) => !validAmount(equipment[key]) || equipment[key] > (battle.attackerEquipmentCommitted[key] ?? 0))) {
+    return { ok: false, message: "进攻军装备战损数据无效" };
+  }
+  return { ok: true, equipment };
+}
+
+export function validEquipmentBalances(state) {
+  return state.cities.every((city) => EQUIPMENT_KEYS.every((key) => validAmount(city[key] ?? 0)));
+}
+
+/** A battle may consume only its own one-shot preparation, not a later replacement. */
+export function settleAmbushPreparation(city, battle) {
+  if (battle.ambushPreparationUsedId && city.ambushPreparation?.id === battle.ambushPreparationUsedId) delete city.ambushPreparation;
 }
 
 /** Only already escaped soldiers are moved; this transaction never inflicts new losses. */
@@ -52,10 +86,11 @@ export function planEscapedDefenders(state, battle, target) {
   return { ok: true, units, officerIds, troops, retreatCityId: home.id };
 }
 
-export function returnEscapedDefenders(state, plan) {
+export function returnEscapedDefenders(state, plan, rules, returnEquipment = false) {
   if (!plan.units.length) return;
   const home = getCity(state, plan.retreatCityId);
   mergeTroops(home, plan.troops, weightedQuality(plan.units, "training", home.training), weightedQuality(plan.units, "morale", home.morale));
+  if (returnEquipment) addEquipment(home, sumEquipment(plan.units, rules));
   for (const id of plan.officerIds) {
     for (const city of state.cities) {
       city.officerIds = city.officerIds.filter((officerId) => officerId !== id);
@@ -69,7 +104,11 @@ export function returnEscapedDefenders(state, plan) {
 
 /** Keep public city/officer references usable while committing a validated draft atomically. */
 export function commitBattleDraft(state, draft) {
-  const cities = draft.cities.map((city) => Object.assign(getCity(state, city.id) ?? {}, city));
+  const cities = draft.cities.map((city) => {
+    const previous = getCity(state, city.id) ?? {};
+    if (!("ambushPreparation" in city)) delete previous.ambushPreparation;
+    return Object.assign(previous, city);
+  });
   const officers = draft.officers.map((officer) => Object.assign(state.officers.find((entry) => entry.id === officer.id) ?? {}, officer));
   Object.assign(state, draft, { cities, officers });
 }
@@ -119,6 +158,11 @@ export function settlePlayerBattle(state, battle, winner) {
   const draft = structuredClone(state);
   const draftTarget = getCity(draft, target.id);
   const draftSource = getCity(draft, source.id);
+  const attackerEquipment = survivingAttackerEquipment(battle);
+  if (!attackerEquipment.ok) return attackerEquipment;
+  const defenderEquipment = settleDefenderEquipment(draftTarget, battle);
+  if (!defenderEquipment.ok) return defenderEquipment;
+  settleAmbushPreparation(draftTarget, battle);
   // The defender's stock is a battle-owned copy until this transaction; never add it to the old warehouse.
   draftTarget.food = stores.enemy.food;
   draftTarget.gold = stores.enemy.gold;
@@ -126,11 +170,11 @@ export function settlePlayerBattle(state, battle, winner) {
   draftTarget.training = weightedQuality(defendingUnits, "training", target.training);
   draftTarget.morale = weightedQuality(defendingUnits, "morale", target.morale);
   Object.assign(draftTarget, normalizeCityDefense(target), { defense });
-  returnEscapedDefenders(draft, escaped);
+  returnEscapedDefenders(draft, escaped, battle.rules, Boolean(battle.defenderEquipmentCommitted));
   let occupation;
   if (winner === "ally") {
     occupation = resolveOccupation(draft, { sourceId: source.id, targetId: target.id, officerIds,
-      troops: allyTroops, training, morale, ...supplies });
+      troops: allyTroops, training, morale, ...supplies, equipment: attackerEquipment.equipment });
     if (!occupation.ok) return { ok: false, message: occupation.message };
   } else {
     if (!validAmount(source.troops + allyTroops) || !validAmount(source.food + supplies.food) || !validAmount(source.gold + supplies.gold)) {
@@ -139,7 +183,9 @@ export function settlePlayerBattle(state, battle, winner) {
     mergeTroops(draftSource, allyTroops, training, morale);
     draftSource.food += supplies.food;
     draftSource.gold += supplies.gold;
+    addEquipment(draftSource, attackerEquipment.equipment);
   }
+  if (!validEquipmentBalances(draft)) return { ok: false, message: "战后装备库存超过有效范围" };
   commitBattleDraft(state, draft);
   battle.settled = true;
   return { ok: true, source, target, allyTroops, enemyTroops, supplies,

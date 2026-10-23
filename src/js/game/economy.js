@@ -1,5 +1,6 @@
 import { addEvent } from "./state.js";
 import { NEUTRAL_FACTION_ID } from "./atlas.js";
+import { activeBattleCampaigns, cityBesieged, syncCampaignEconomy, ordinaryGarrisonTroops, officerAtWar } from "./war-state.js";
 
 const localOfficers = (state, city) => [...new Set(city.officerIds ?? [])]
   .map((id) => state.officers.find((officer) => officer.id === id))
@@ -41,7 +42,7 @@ export function previewCityEconomy(state, city, rules) {
   return {
     monthlyGold,
     annualFood: calculateAnnualHarvest(city, rules),
-    monthlyFood: monthlyFoodCost(city.troops, rules),
+    monthlyFood: monthlyFoodCost(ordinaryGarrisonTroops(state, city), rules),
     monthlySalary,
     netGold: monthlyGold - monthlySalary,
     harvestMonth: rules.economy.harvestMonth
@@ -61,7 +62,7 @@ export function settleMonthlyEconomy(state, rules) {
     city.food -= foodSpent;
     city.gold -= salaryPaid;
     const troopLoss = foodShortfall > 0
-      ? Math.floor(city.troops * rules.economy.maxStarvationLossRate * foodShortfall / preview.monthlyFood) : 0;
+      ? Math.floor(ordinaryGarrisonTroops(state, city) * rules.economy.maxStarvationLossRate * foodShortfall / preview.monthlyFood) : 0;
     const loyaltyLoss = salaryShortfall > 0
       ? Math.ceil(rules.economy.maxUnpaidLoyaltyLoss * salaryShortfall / preview.monthlySalary) : 0;
     city.troops -= troopLoss;
@@ -78,6 +79,18 @@ export function settleMonthlyEconomy(state, rules) {
         + (salaryShortfall ? `欠俸 ${salaryShortfall.toLocaleString()}，城内将领忠诚 -${loyaltyLoss}。` : ""));
     }
   }
+  // If the army's old seat falls, its generals draw salary from carried gold.
+  // While that seat remains friendly, the ordinary city payroll already pays them.
+  for (const record of activeBattleCampaigns(state)) {
+    const officers = (record.attackerOfficerIds ?? []).map((id) => state.officers.find((officer) => officer.id === id)).filter((officer) => officer
+      && !state.cities.some((city) => city.factionId === officer.factionId && city.officerIds.includes(officer.id)));
+    const cost = officers.reduce((sum, officer) => sum + (rules.economy.salaryByRank[officer.rank] ?? rules.economy.salaryByRank["从事"]), 0);
+    if (!cost) continue;
+    const wallet = record.snapshot.supplies.ally, paid = Math.min(wallet.gold, cost);
+    wallet.gold -= paid;
+    if (paid < cost) for (const officer of officers) officer.loyalty = Math.max(0, (officer.loyalty ?? 100) - Math.ceil(rules.economy.maxUnpaidLoyaltyLoss * (cost - paid) / cost));
+  }
+  syncCampaignEconomy(state);
   return reports;
 }
 
@@ -91,15 +104,17 @@ export function applyAnnualHarvest(state, rules) {
     reports.push({ cityId: city.id, food });
     if (city.factionId === state.playerFactionId) addEvent(state, `${city.name}七月收获：粮 +${food.toLocaleString()}。`);
   }
+  syncCampaignEconomy(state);
   return reports;
 }
 
 export function executeGrainTrade(state, cityId, officerId, direction, goldAmount, rules) {
   if (state.commandsRemaining <= 0) return { ok: false, message: "本月指令已用尽" };
   const city = state.cities.find((entry) => entry.id === cityId);
+  if (cityBesieged(state, cityId)) return { ok: false, message: "交战城池暂不能买卖军粮" };
   const officer = state.officers.find((entry) => entry.id === officerId);
   if (!city || city.factionId !== state.playerFactionId) return { ok: false, message: "只能在本势力城池买卖粮食" };
-  if (!officer || !localOfficers(state, city).includes(officer) || officer.acted) return { ok: false, message: "执行武将不可用或本月已经行动" };
+  if (!officer || !localOfficers(state, city).includes(officer) || officer.acted || officerAtWar(state, officerId)) return { ok: false, message: "执行武将不可用或本月已经行动" };
   if (!["buy", "sell"].includes(direction)) return { ok: false, message: "交易方向无效" };
   const gold = Number(goldAmount);
   if (!Number.isSafeInteger(gold) || gold < 1) return { ok: false, message: "交易金额须为至少 1 金的整数" };

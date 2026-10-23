@@ -1,9 +1,12 @@
+import { calculateCombatStats } from "./combat-stats.js";
+
 export const ATTACK_ORDERS = { ram: "撞门", assault: "蚁附", tunnel: "地道" };
 export const DEFENSE_ORDERS = { rotate: "轮换修整", repair: "修补城墙", sortie: "出城袭扰" };
 
 const DEFAULTS = {
   effectiveTroopCaps: { 1: 20000, 2: 35000, 3: 50000 }, layerHp: 100,
-  baseProgressPerThousand: 1.3, defenseProgressPenalty: 0.006, minimumProgressMultiplier: 0.25,
+  effectiveTroopCap: 30000, hitPointsByLevel: { 1: 100, 2: 160, 3: 220 },
+  baseProgressPerThousand: 3, defenseProgressPenalty: 0.006, minimumProgressMultiplier: 0.25,
   attackerLossRate: 0.018, defenderLossRate: 0.012, encirclementMultiplier: 1.25,
   deceiveChanceBase: 0.35, deceiveIntelligenceScale: 200, deceiveProgress: 25, deceiveDefenseDamage: 10,
   interceptLossRate: 0.07, interceptCounterRate: 0.025, encircledRetreatLossRate: 0.12,
@@ -36,6 +39,7 @@ export function getSiegeConfig(rules = {}) {
     [id, { ...command, ...custom[key]?.[id] }]));
   return { ...DEFAULTS, ...custom,
     effectiveTroopCaps: { ...DEFAULTS.effectiveTroopCaps, ...custom.effectiveTroopCaps },
+    hitPointsByLevel: { ...DEFAULTS.hitPointsByLevel, ...custom.hitPointsByLevel },
     attackCommands: mergeCommands("attackCommands"), defenseCommands: mergeCommands("defenseCommands"),
     strategyOutcomes: Object.fromEntries(Object.entries(DEFAULTS.strategyOutcomes).map(([action, outcomes]) => [action,
       Object.fromEntries(Object.entries(outcomes).map(([outcome, modifiers]) => [outcome,
@@ -45,17 +49,47 @@ export function getSiegeConfig(rules = {}) {
 export function createSiegeState(wallLevel, rules = {}) {
   const level = Math.max(1, Math.min(3, Math.floor(wallLevel || 1)));
   const config = getSiegeConfig(rules);
-  const layers = [
-    ...(level >= 3 ? [{ id: "barbican", name: "瓮城" }] : []),
-    ...(level >= 2 ? [{ id: "outer", name: "外城" }] : []),
-    { id: "inner", name: "内城" }
-  ].map((layer) => ({ ...layer, hp: config.layerHp, maxHp: config.layerHp }));
-  return { layers, activeLayerIndex: 0, encirclement: null, orders: { ally: null, enemy: null }, history: [] };
+  const maxHp = config.hitPointsByLevel[level];
+  return { hp: maxHp, maxHp, breachedMilestones: [], encirclement: null, orders: { ally: null, enemy: null }, history: [] };
+}
+
+export const SIEGE_MILESTONES = [
+  { id: "barbican", name: "瓮城", progress: 0.33 },
+  { id: "outer", name: "外城", progress: 0.66 },
+  { id: "inner", name: "内城", progress: 1 }
+];
+
+/** Old saves stored independent wall layers. Preserve their total remaining work. */
+export function normalizeSiegeState(value, wallLevel = 1, rules = {}) {
+  const state = { ...createSiegeState(wallLevel, rules), ...value };
+  if (!Number.isFinite(value?.hp) && Array.isArray(value?.layers) && value.layers.length) {
+    state.maxHp = value.layers.reduce((sum, layer) => sum + Math.max(0, Number(layer.maxHp) || 0), 0);
+    state.hp = value.layers.reduce((sum, layer, index) => sum + (index < (value.activeLayerIndex ?? 0) ? 0
+      : Math.max(0, Math.min(Number(layer.hp) || 0, Number(layer.maxHp) || 0))), 0);
+  }
+  if (!Number.isFinite(state.maxHp) || state.maxHp <= 0) state.maxHp = createSiegeState(wallLevel, rules).maxHp;
+  state.hp = Math.max(0, Math.min(state.maxHp, Number.isFinite(state.hp) ? state.hp : state.maxHp));
+  const progress = 1 - state.hp / state.maxHp;
+  state.breachedMilestones = [...new Set([...(Array.isArray(state.breachedMilestones) ? state.breachedMilestones : []),
+    ...SIEGE_MILESTONES.filter((entry) => progress + 1e-9 >= entry.progress).map((entry) => entry.id)])];
+  delete state.layers;
+  delete state.activeLayerIndex;
+  return state;
 }
 
 export function effectiveTroops(troops, wallLevel, rules = {}) {
   const config = getSiegeConfig(rules);
-  return Math.min(Math.max(0, troops), config.effectiveTroopCaps[Math.max(1, Math.min(3, wallLevel || 1))]);
+  return Math.min(Math.max(0, troops), config.effectiveTroopCap);
+}
+
+function combatPanel(army, rules) {
+  return army.combatStats ?? calculateCombatStats(army, rules);
+}
+
+function cappedPower(panel, effective) {
+  // Use the same per-soldier finalized power at the wall's manpower limit. This
+  // does not reapply leadership, morale or training after panel calculation.
+  return panel.meleePowerPerTroop * effective;
 }
 
 /** All losses use the opposing effective army; progress uses only attacking strength. */
@@ -66,9 +100,8 @@ export function evaluateSiegeDay({ attacker, defender, attackOrder, defenseOrder
   if (!attack || !defense) return { ok: false, message: "无效的攻守命令" };
   const attackerEffective = effectiveTroops(attacker.troops, wallLevel, rules);
   const defenderEffective = effectiveTroops(defender.troops, wallLevel, rules);
-  const quality = (army) => (config.qualityBase + (army.leadership ?? 30) / config.qualityLeadershipDivisor)
-    * (config.qualityBase + (army.training ?? 50) / config.qualityTrainingDivisor)
-    * (config.qualityBase + (army.morale ?? 50) / config.qualityMoraleDivisor);
+  const attacking = combatPanel(attacker, rules), defending = combatPanel(defender, rules);
+  const attackerPower = cappedPower(attacking, attackerEffective), defenderPower = cappedPower(defending, defenderEffective);
   const strategyResults = [];
   const modifiers = { progress: 1, attackerLoss: 1, defenderLoss: 1 };
   const strategy = (side, action, own, opposing) => {
@@ -81,12 +114,12 @@ export function evaluateSiegeDay({ attacker, defender, attackOrder, defenseOrder
   };
   if (attackOrder === "tunnel") strategy("ally", "tunnel", attacker, defender);
   if (defenseOrder === "sortie") strategy("enemy", "sortie", defender, attacker);
-  const attackerLoss = Math.min(attacker.troops, Math.max(0, Math.round(defenderEffective * config.attackerLossRate
-    * quality(defender) * attack.attackerLoss * defense.attackerLoss * modifiers.attackerLoss)));
-  const defenderLoss = Math.min(defender.troops, Math.max(0, Math.round(attackerEffective * config.defenderLossRate
-    * quality(attacker) * attack.defenderLoss * defense.defenderLoss * modifiers.defenderLoss)));
+  const attackerLoss = Math.min(attacker.troops, Math.max(0, Math.round(defenderPower * config.attackerLossRate
+    / attacking.meleeDefense * attack.attackerLoss * defense.attackerLoss * modifiers.attackerLoss)));
+  const defenderLoss = Math.min(defender.troops, Math.max(0, Math.round(attackerPower * config.defenderLossRate
+    / defending.meleeDefense * attack.defenderLoss * defense.defenderLoss * modifiers.defenderLoss)));
   const fortification = Math.max(config.minimumProgressMultiplier, 1 - cityDefense * config.defenseProgressPenalty);
-  const progress = attackerEffective / 1000 * config.baseProgressPerThousand * quality(attacker)
+  const progress = attackerPower / 1000 * config.baseProgressPerThousand
     * attack.progress * defense.progress * fortification * modifiers.progress;
   return { ok: true, attackerEffective, defenderEffective, attackerLoss, defenderLoss,
     progress: Math.max(0, progress), defenseDamage: Math.max(0, attack.defenseDamage), repair: Math.max(0, defense.repair),
@@ -96,27 +129,28 @@ export function evaluateSiegeDay({ attacker, defender, attackOrder, defenseOrder
 
 export function interceptionLosses(attacker, defender, wallLevel, rules = {}) {
   const config = getSiegeConfig(rules);
-  const command = (army) => config.interceptionAbilityBase + ((army.war ?? 30) * config.interceptionWarWeight
-    + (army.leadership ?? 30) * config.interceptionLeadershipWeight) / config.interceptionAbilityDivisor;
-  const ratio = Math.max(config.minimumCombatRatio, Math.min(config.maximumCombatRatio, command(attacker) / command(defender)));
+  const attacking = combatPanel(attacker, rules), defending = combatPanel(defender, rules);
+  const attackerPower = cappedPower(attacking, effectiveTroops(attacker.troops, wallLevel, rules));
+  const defenderPower = cappedPower(defending, effectiveTroops(defender.troops, wallLevel, rules));
   return {
-    attackerLoss: Math.min(attacker.troops, Math.round(effectiveTroops(defender.troops, wallLevel, rules) * config.interceptCounterRate / ratio)),
-    defenderLoss: Math.min(defender.troops, Math.round(effectiveTroops(attacker.troops, wallLevel, rules) * config.interceptLossRate * ratio))
+    attackerLoss: Math.min(attacker.troops, Math.round(defenderPower * config.interceptCounterRate / attacking.meleeDefense)),
+    defenderLoss: Math.min(defender.troops, Math.round(attackerPower * config.interceptLossRate / defending.meleeDefense))
   };
 }
 
-/** Carry excess progress forward, so a stronger assault is never discarded at a wall boundary. */
+/** One HP pool; milestones are announcements, never extra walls or discarded progress. */
 export function damageSiegeLayers(siege, damage) {
-  let remaining = Math.max(0, damage);
+  Object.assign(siege, normalizeSiegeState(siege));
+  delete siege.layers;
+  delete siege.activeLayerIndex;
+  siege.hp = Math.max(0, siege.hp - (Number.isFinite(damage) ? Math.max(0, damage) : 0));
+  const progress = 1 - siege.hp / siege.maxHp;
   const breached = [];
-  while (remaining > 0 && siege.activeLayerIndex < siege.layers.length) {
-    const layer = siege.layers[siege.activeLayerIndex];
-    const applied = Math.min(layer.hp, remaining);
-    layer.hp = Math.max(0, layer.hp - applied);
-    remaining -= applied;
-    if (layer.hp > 0) break;
-    breached.push(layer.name);
-    siege.activeLayerIndex += 1;
+  for (const entry of SIEGE_MILESTONES) {
+    if (progress + 1e-9 >= entry.progress && !siege.breachedMilestones.includes(entry.id)) {
+      siege.breachedMilestones.push(entry.id);
+      breached.push(entry.name);
+    }
   }
-  return { breached, conquered: siege.activeLayerIndex >= siege.layers.length };
+  return { breached, conquered: siege.hp <= 0 };
 }

@@ -4,7 +4,8 @@ import { mergeTroops } from "./rules.js";
 import { addEvent } from "./state.js";
 import { armyLimits, createDefenderFormations, formationCapacity, formationOfficerIds } from "./army.js";
 import { normalizeCityDefense } from "./city-defense.js";
-import { commitBattleDraft, planEscapedDefenders, remainingCityDefense, returnEscapedDefenders } from "./battle-result.js";
+import { commitBattleDraft, planEscapedDefenders, remainingCityDefense, returnEscapedDefenders, settleDefenderEquipment, settleAmbushPreparation, survivingAttackerEquipment, validEquipmentBalances } from "./battle-result.js";
+import { addEquipment, equipmentAvailable, sumEquipment, validateComposition } from "./troops.js";
 
 const cityById = (state, id) => state.cities.find((city) => city.id === id);
 const officerById = (state, id) => state.officers.find((officer) => officer.id === id);
@@ -52,7 +53,7 @@ export function createInvasionBattle(state, invasionId, rules, map, options = {}
       || officers.some((id) => !city.officerIds.includes(id) || !activeOfficer(officerById(state, id), city.factionId))
       || !amount(division.troops) || division.troops === 0
       || division.troops > formationCapacity(officers.map((id) => officerById(state, id)), rules)
-      || !["infantry", "cavalry", "archer"].includes(division.unitType ?? "infantry");
+      || !validateComposition(division, { state, factionId: city.factionId, officers: officers.map((id) => officerById(state, id)), rules }).ok;
   };
   if (!Array.isArray(divisions) || !divisions.length || divisions.length > maxUnits
     || !Array.isArray(ids) || !ids.length || new Set(ids).size !== ids.length
@@ -73,7 +74,8 @@ export function createInvasionBattle(state, invasionId, rules, map, options = {}
       return rejected("守军编组的将领或兵力无效");
     }
   }
-  const deployedDefenders = defenderDivisions ?? createDefenderFormations(target, state.officers, rules);
+  const deployedDefenders = defenderDivisions ?? createDefenderFormations(target, state.officers, rules, { state });
+  if (!equipmentAvailable(target, sumEquipment(deployedDefenders, rules))) return rejected("守军编成所需装备超过城中库存");
   if (!map || !Array.isArray(map.attackerStarts) || map.attackerStarts.length < divisions.length
     || !Array.isArray(map.defenderStarts) || map.defenderStarts.length < deployedDefenders.length) {
     return rejected("战场部署位置不足，无法迎战");
@@ -82,12 +84,15 @@ export function createInvasionBattle(state, invasionId, rules, map, options = {}
     const battle = new BattleEngine({
       sourceCity: { ...structuredClone(source), training: invasion.training, morale: invasion.morale },
       targetCity: structuredClone(target), divisions: structuredClone(divisions), officers: structuredClone(state.officers),
-      supplies: { ...invasion.supplies }, rules, map, playerSide: "enemy", mode,
+      supplies: { ...invasion.supplies }, rules, map, playerSide: "enemy", mode, state,
       ...(defenderDivisions === undefined ? {} : { defenderDivisions: structuredClone(defenderDivisions) }),
       canDefenderRetreat: state.cities.some((city) => city.id !== target.id && city.factionId === target.factionId)
     });
     battle.invasionId = invasion.id;
     battle.armyOfficerIds = [...ids];
+    // Legacy orders did not reserve equipment. Do not invent it during their return.
+    if (invasion.equipment) battle.attackerEquipmentCommitted = { ...invasion.equipment };
+    else if (divisions.every((division) => !division.composition)) delete battle.attackerEquipmentCommitted;
     return { ok: true, battle };
   } catch {
     return rejected("战场数据无效，未扣除任何额外兵力或钱粮");
@@ -156,13 +161,18 @@ export function settleDefensiveBattle(state, battle, winner, { retreated = false
   const draft = structuredClone(state);
   const draftTarget = cityById(draft, target.id);
   const draftSource = cityById(draft, battle.sourceCityId);
+  const attackerEquipment = survivingAttackerEquipment(battle);
+  if (!attackerEquipment.ok) return attackerEquipment;
+  const defenderEquipment = settleDefenderEquipment(draftTarget, battle, { keepSurvivors: !retreated });
+  if (!defenderEquipment.ok) return defenderEquipment;
+  settleAmbushPreparation(draftTarget, battle);
   draftTarget.food = supplies.defender.food;
   draftTarget.gold = supplies.defender.gold;
   draftTarget.troops = defenderSurvivors;
   draftTarget.training = defendingTraining;
   draftTarget.morale = defendingMorale;
   Object.assign(draftTarget, normalizeCityDefense(target), { defense });
-  returnEscapedDefenders(draft, escaped);
+  returnEscapedDefenders(draft, escaped, battle.rules, Boolean(battle.defenderEquipmentCommitted));
   const defenderOfficerIds = draftTarget.officerIds.filter((id) => activeOfficer(officerById(draft, id), invasion.defenderFactionId));
   let occupation = null;
   let returnCityId = null;
@@ -179,6 +189,7 @@ export function settleDefensiveBattle(state, battle, winner, { retreated = false
       mergeTroops(home, attackerSurvivors, attackingTraining, attackingMorale);
       home.food += supplies.attacker.food;
       home.gold += supplies.attacker.gold;
+      addEquipment(home, attackerEquipment.equipment);
       returnCityId = home.id;
     }
   } else {
@@ -186,7 +197,7 @@ export function settleDefensiveBattle(state, battle, winner, { retreated = false
       return rejected("占领后的城池钱粮超过有效范围");
     }
     occupation = resolveOccupation(draft, { sourceId: draftSource.id, targetId: draftTarget.id, officerIds: ids,
-      troops: attackerSurvivors, training: attackingTraining, morale: attackingMorale, ...supplies.attacker });
+      troops: attackerSurvivors, training: attackingTraining, morale: attackingMorale, ...supplies.attacker, equipment: attackerEquipment.equipment });
     if (!occupation.ok) return rejected(occupation.message);
     if (retreated && defenderSurvivors > 0) {
       // Keep retreating soldiers with the actual escaped commanders, including legacy retreat routing.
@@ -195,6 +206,7 @@ export function settleDefensiveBattle(state, battle, winner, { retreated = false
       if (home && home.factionId === invasion.defenderFactionId) {
         if (!cityValid(home) || !amount(home.troops + defenderSurvivors)) return rejected("守军撤退驻地数据无效");
         mergeTroops(home, defenderSurvivors, defendingTraining, defendingMorale);
+        if (battle.defenderEquipmentCommitted) addEquipment(home, sumEquipment(defenders, battle.rules));
         escapedTroops += defenderSurvivors;
         retreatCityId = home.id;
       }
@@ -212,6 +224,7 @@ export function settleDefensiveBattle(state, battle, winner, { retreated = false
   pending.supplies = { food: 0, gold: 0 };
   draft.pendingInvasions = draft.pendingInvasions.filter((entry) => !entry.resolved);
   addEvent(draft, message);
+  if (!validEquipmentBalances(draft)) return rejected("战后装备库存超过有效范围");
   commitBattleDraft(state, draft);
   battle.settled = true;
   return { ok: true, source: cityById(state, battle.sourceCityId) ?? null, target: cityById(state, target.id), playerWon,

@@ -1,5 +1,5 @@
 const FINISHED = new Set(["completed", "failed"]);
-const ACTIVE = new Set(["running", "awaiting_battle"]);
+const ACTIVE = new Set(["running", "awaiting_battle", "in_battle"]);
 
 export const taskIsActive = (task) => ACTIVE.has(task.status);
 

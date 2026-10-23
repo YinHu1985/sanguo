@@ -304,18 +304,21 @@ test("field logs retain their original audience and hidden actions never become 
   assert.equal(battle.getVisibleLog("ally").some((entry) => /守方消耗/.test(entry.message)), false);
 });
 
-test("defending AI does not pursue an unseen enemy and may wait in a prepared woodland ambush", () => {
+test("defending AI may advance on the public attacker camp without seeing enemies, or prepare woodland ambush", () => {
   const battle = makeBattle();
   const enemy = battle.livingUnits("enemy")[0];
   activate(battle, enemy);
   const position = { ...enemy.position };
-  assert.equal(battle.runEnemyTurn().action, "wait");
-  assert.deepEqual(enemy.position, position);
+  assert.equal(battle.visibleUnits("enemy").some((unit) => unit.side === "ally"), false);
+  assert.equal(battle.runEnemyTurn().action, "move");
+  assert.equal(battle.distance(position, enemy.position), 1);
+  assert.ok(battle.distance(enemy.position, battle.attackerCamp) < battle.distance(position, battle.attackerCamp));
+  const ambushPosition = { ...enemy.position };
   terrain(battle, enemy.position, "forest");
   activate(battle, enemy);
   assert.equal(battle.runEnemyTurn().action, "ambush");
   assert.equal(enemy.ambushing, true);
-  assert.deepEqual(enemy.position, position);
+  assert.deepEqual(enemy.position, ambushPosition);
 });
 
 test("attacking AI can use allied scouts to see an armed ambush and choose cautious movement", () => {

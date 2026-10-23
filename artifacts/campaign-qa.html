@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>52三国志 · 跨月战役验收</title>
+<link rel="stylesheet" href="../dist/styles/main.css"><link rel="stylesheet" href="../dist/styles/classic-theme.css"><link rel="stylesheet" href="../dist/styles/typography.css"><link rel="stylesheet" href="../dist/styles/warfare.css"><link rel="stylesheet" href="../dist/styles/war-campaigns.css">
+<style>
+body{padding:25px;overflow:auto;min-height:100vh;background:url('../dist/assets/ui/cloud-brocade.svg'),#273f40;color:#eddfbd}
+.qa-wrap{max-width:1200px;margin:auto}.qa-title{display:flex;align-items:center;gap:20px}.qa-title img{width:62px}.qa-title h1{font:32px var(--display);margin:0}.qa-title p,.qa-note{font-size:12px;line-height:1.8}.qa-tools{display:flex;gap:10px;margin:20px 0;flex-wrap:wrap}.qa-summary{border:3px double #ac975e;background:#efe4c7;color:#334b40;padding:14px;margin-bottom:18px;line-height:1.9;font-size:13px}.war-ledger-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.war-record{color:#34493c;background:url('../dist/assets/ui/paper-fibers.svg'),#eee3c9}.war-record footer{display:none}.qa-siege{position:relative;min-height:700px;background:url('../dist/assets/battle/siege-background.png') center/cover;border:3px double #b49f6b;margin-top:20px;overflow:hidden}.qa-siege .siege-fortress{left:20px;top:20px}.qa-siege .siege-armies{right:20px;top:20px}.qa-siege .siege-orders{bottom:20px;left:20px}.qa-siege .siege-fortress,.qa-siege .siege-orders,.qa-siege .siege-army{background:#eee3c9}.qa-note{color:#d4ceb7}@media(max-width:900px){.war-ledger-grid{grid-template-columns:1fr}}
+</style>
+<div class="qa-wrap"><header class="qa-title"><img src="../dist/assets/seal.svg" alt="伍贰三国印"><div><h1>天下战役 · 跨月演算</h1><p>真实战役账本与战斗引擎 · 一场我军、两场 AI 战争 · 无浏览器存档读写</p></div></header>
+<div class="qa-tools"><button class="btn btn-primary" id="month">后台推进一个月</button><button class="btn" id="restore">序列化再恢复</button><button class="btn" id="siege">检视单条城墙</button><button class="btn" id="reset">重置验收场景</button></div>
+<div class="qa-summary" id="summary" aria-live="polite"></div><div id="wars" class="war-ledger-grid"></div><div id="siege-preview" class="qa-siege" hidden></div><p class="qa-note">验收预设：各军 2,000 名普通步兵、三级城墙，开战携粮 60 日，用小军队验证跨月延续。正式平衡测试另用双方 10,000 兵验证伤害与破城速度。本页不修改正式剧本。</p></div>
+<div id="modal-root"></div><div id="toast-root"></div>
+<script type="module">
+import { enableWarCampaigns, ensureInvasionBattle, advanceBattleMonths, getBattleEngine } from '../dist/js/game/war-campaigns.js';
+import { advanceMonth } from '../dist/js/game/rules.js';
+import { warLedgerMarkup } from '../dist/js/ui/war-windows.js';
+import { renderSiegeView } from '../dist/js/ui/siege-view.js';
+import { BattleEngine } from '../dist/js/game/battle.js';
+if(location.port!=='4174') throw new Error('仅用于独立本地验收端口');
+const rules=await(await fetch('../dist/data/rules.json')).json(),map=await(await fetch('../dist/data/battle-map.json')).json();
+const names=['曹操','张绣','袁绍','公孙瓒','孙策','刘表'],cities=['许昌','宛','南皮','北平','柴桑','江夏'];
+let state,lastMessage='';
+function setup(){
+ state={version:1,scenarioId:'cross-month-qa',started:true,playerFactionId:'f0',year:196,month:11,elapsedMonths:0,commandsRemaining:6,commandsMax:6,eventLog:[],tasks:[],nextTaskId:1,pendingInvasions:[],
+  factions:names.map((name,i)=>({id:`f${i}`,name:`${name}军`,lord:`o${i}`,researchPoints:0})),
+  officers:names.map((name,i)=>({id:`o${i}`,name,factionId:`f${i}`,locationCityId:`c${i}`,status:'active',rank:'将军',war:50,leadership:50,intelligence:50,politics:50,charm:50,loyalty:100})),
+  cities:cities.map((name,i)=>({id:`c${i}`,name,factionId:`f${i}`,officerIds:[`o${i}`],troops:i%2?2000:4000,training:50,morale:80,food:60000,gold:10000,horses:0,crossbows:0,armor:0,wallLevel:3,defense:100,wallProgress:0,agriculture:50,commerce:50,popularSupport:80,adjacent:[`c${i%2?i-1:i+1}`]}))};
+ enableWarCampaigns(state,map);
+ for(let i=0;i<6;i+=2){
+  const supplies={food:480,gold:0};state.cities[i].troops-=2000;state.cities[i].food-=supplies.food;
+  const order={id:`qa-${i}`,sourceId:`c${i}`,targetId:`c${i+1}`,attackerFactionId:`f${i}`,defenderFactionId:`f${i+1}`,officerIds:[`o${i}`],troops:2000,training:50,morale:80,divisions:[{officerIds:[`o${i}`],troops:2000,composition:{infantry:2000}}],supplies,equipment:{},resolved:false,resolutionMode:'siege'};
+  state.pendingInvasions.push(order);const result=ensureInvasionBattle(state,order,rules,map,{targetTurn:1,mode:'siege'});if(!result.ok)throw new Error(result.message);
+ }
+ lastMessage='三场战役均已建立，各自持有独立兵力、钱粮、城墙与随机数状态。';render();
+}
+function render(){
+ document.querySelector('#summary').textContent=`${state.year} 年 ${state.month} 月 · 已推进 ${state.elapsedMonths} 个月。${lastMessage}`;
+ document.querySelector('#wars').innerHTML=warLedgerMarkup(state,'all');document.querySelector('#siege-preview').hidden=true;
+}
+document.querySelector('#month').addEventListener('click',()=>{
+ const started=performance.now(),turn=state.elapsedMonths+1;
+ const report=advanceBattleMonths(state,rules,{targetTurn:turn,backgroundOnly:false});if(!report.ok)throw new Error(report.message);
+ advanceMonth(state,rules);lastMessage=`全部战场本月模拟完成，用时 ${(performance.now()-started).toFixed(1)} ms；未结束者下月续战。`;render();
+});
+document.querySelector('#restore').addEventListener('click',()=>{
+ const before=JSON.stringify(state);state=JSON.parse(before);enableWarCampaigns(state,map);
+ for(const record of state.battles){const restored=BattleEngine.fromSnapshot(record.snapshot,{rules});if(restored.day!==record.snapshot.day||restored.supplies.ally.food!==record.snapshot.supplies.ally.food)throw new Error('恢复不一致');}
+ lastMessage='全部战场已从 JSON 恢复：日数、钱粮、部队与进度保留，没有推进战斗或再次扣粮。';render();
+});
+document.querySelector('#siege').addEventListener('click',()=>{
+ const record=state.battles.find(row=>row.status!=='ended')??state.battles[0];const engine=BattleEngine.fromSnapshot(record.snapshot,{rules});
+ const view=document.querySelector('#siege-preview');view.hidden=false;renderSiegeView(view,engine,{cityName:state.cities.find(c=>c.id===record.targetCityId).name,busy:true,onDecision(){},onOrder(){}});
+});
+document.querySelector('#reset').addEventListener('click',setup);setup();
+</script></html>
