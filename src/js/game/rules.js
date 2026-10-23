@@ -9,6 +9,8 @@ import { EQUIPMENT_KEYS, EQUIPMENT_NAMES } from "./equipment.js";
 import { advanceResearch } from "./technology.js";
 import { validateComposition, sumEquipment, equipmentAvailable, primaryTroopType } from "./troops.js";
 import { cityBesieged, officerAtWar, restoreWarLocks } from "./war-state.js";
+import { canIssueCommand, consumeCommand } from "./commands.js";
+export { canIssueCommand } from "./commands.js";
 
 export const clamp = (value, min = 0, max = 100) => Math.max(min, Math.min(max, value));
 
@@ -35,10 +37,6 @@ export function cityOfficers(state, city) {
 export function availableOfficers(state, city) {
   if (cityBesieged(state, city.id)) return [];
   return cityOfficers(state, city).filter((officer) => !officer.acted && !officer.taskId && !officerAtWar(state, officer.id));
-}
-
-export function canIssueCommand(state) {
-  return state.commandsRemaining > 0;
 }
 
 export function previewDomestic(action, officers, city, rules) {
@@ -92,7 +90,7 @@ export function executeDomestic(state, cityId, action, officerIds, rules) {
     officer.acted = true;
     officer.merit = (officer.merit ?? 0) + 25 + (preview.resource ? Math.floor(preview.gain / 50) : preview.gain);
   });
-  state.commandsRemaining -= 1;
+  consumeCommand(state);
 
   const names = officers.map((officer) => officer.name).join("、");
   const labels = { agriculture: "开发农田", commerce: "整顿商市", patrol: "巡视乡里", train: "操练士卒", buildWall: "修筑城防",
@@ -127,7 +125,7 @@ export function executeRecruit(state, cityId, officerId, amount, rules) {
   city.training = clamp(Math.round((city.training * (city.troops - roundedAmount) + 25 * roundedAmount) / city.troops));
   officer.acted = true;
   officer.merit += 35;
-  state.commandsRemaining -= 1;
+  consumeCommand(state);
   addEvent(state, `${city.name}：${officer.name}征募新兵 ${roundedAmount.toLocaleString()} 人，民心 -${supportPenalty}。`);
   return { ok: true, message: `征募 ${roundedAmount.toLocaleString()} 人` };
 }
@@ -198,7 +196,7 @@ export function executeTransfer(state, sourceId, targetId, officerId, amount, ru
   if (troops > 0) mergeTroops(target, troops, incomingTraining, incomingMorale);
   officer.acted = true;
   officer.merit = (officer.merit ?? 0) + 30;
-  state.commandsRemaining -= 1;
+  consumeCommand(state);
   const cargoLabel = [troops && `${troops.toLocaleString()} 兵力`, gold && `金 ${gold.toLocaleString()}`, food && `粮 ${food.toLocaleString()}`,
     ...EQUIPMENT_KEYS.map((key) => equipment[key] && `${EQUIPMENT_NAMES[key]} ${equipment[key].toLocaleString()}`)].filter(Boolean).join("、");
   const message = `${cargoLabel}已抵达${target.name}`;
@@ -217,7 +215,7 @@ export function appointGovernor(state, cityId, officerId, rules) {
   city.gold -= expense;
   city.governorId = officerId;
   officer.acted = true;
-  state.commandsRemaining -= 1;
+  consumeCommand(state);
   addEvent(state, `${city.name}：任命${officer.name}为太守，自下月起主持城务。`);
   return { ok: true, message: `${officer.name}已就任太守` };
 }
@@ -356,7 +354,7 @@ export function commitArmyDeparture(state, validatedArmy) {
   if (!validatedArmy?.ok || validatedArmy.committed) return { ok: false, message: "出征指令无效或已经执行" };
   const { city, target, total, divisions, supplies, expense } = validatedArmy;
   const refreshed = validatedArmy.validationRules ? validateArmy(state, city?.id, target?.id, divisions, validatedArmy.validationRules, supplies, { legacyOrder: validatedArmy.legacyOrder === true }) : null;
-  if (state.commandsRemaining <= 0 || !state.cities.includes(city) || !state.cities.includes(target)
+  if (!canIssueCommand(state) || !state.cities.includes(city) || !state.cities.includes(target)
     || !refreshed?.ok || refreshed.total !== total || refreshed.expense !== expense
     || city.factionId !== state.playerFactionId || target.factionId === city.factionId || !city.adjacent.includes(target.id)
     || areAllied(state, city.factionId, target.factionId) || city.troops < total || city.food < supplies.food || city.gold < supplies.gold + expense
@@ -370,7 +368,7 @@ export function commitArmyDeparture(state, validatedArmy) {
   validatedArmy.equipment = { ...refreshed.equipment };
   validatedArmy.divisions = refreshed.divisions;
   divisions.flatMap(formationOfficerIds).forEach((id) => { getOfficer(state, id).acted = true; });
-  state.commandsRemaining -= 1;
+  consumeCommand(state);
   validatedArmy.committed = true;
   addEvent(state, `${city.name}出兵 ${total.toLocaleString()}，携粮 ${supplies.food.toLocaleString()}、金 ${supplies.gold.toLocaleString()}，进攻${target.name}（出征费 ${expense}）。`);
   return { ok: true, message: "大军已出发" };

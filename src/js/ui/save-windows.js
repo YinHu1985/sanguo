@@ -1,21 +1,22 @@
 import { escapeHtml as esc, openDialog, confirmDialog } from "./components.js";
+import { commandLimitEnabled } from "../game/commands.js";
 
 /** Shared by the title scene and the in-game system menu. */
-export function saveCardMarkup(save, checked = false) {
+export function saveCardMarkup(save, checked = false, rules = {}) {
   const content = save.empty
     ? `<strong>${save.invalid ? "存档无法读取" : "空白存档"}</strong><span>${save.invalid ? "原记录不会自动清除，覆盖前会再次确认。" : "可将当前征程保存在此处。"}</span>`
-    : `<strong>${esc(save.factionName)}</strong><span>${esc(save.year)} 年 ${esc(save.month)} 月 · ${esc(save.cities)} 城 · 余 ${esc(save.commands)} 道指令</span>
+    : `<strong>${esc(save.factionName)}</strong><span>${esc(save.year)} 年 ${esc(save.month)} 月 · ${esc(save.cities)} 城 · ${commandLimitEnabled(rules) ? `余 ${esc(save.commands)} 道指令` : "指令不限"}</span>
       <em>${save.pending ? "月结尚未完成 · 读取后继续处理" : "战略进度已保存在本机"}</em>`;
   return `<label class="save-slot"><input type="radio" name="save-slot" value="${esc(save.id)}" ${checked ? "checked" : ""}>
     <span><small>${esc(save.label)}</small>${content}</span></label>`;
 }
 
-export async function chooseLoadSlot(saves, { inGame = false } = {}) {
+export async function chooseLoadSlot(saves, { inGame = false, rules = {} } = {}) {
   if (!saves.length) return null;
   const body = document.createElement("div");
   body.className = "save-selection";
   body.innerHTML = `<p class="modal-description">选择要读取的征程。手动存档独立保留，不会被自动存档覆盖。战场按已保存的动作继续，跨月阵地与钱粮均保留，不会重新开战或重复扣出征物资。</p>
-    <div class="save-slot-list">${saves.map((save, index) => saveCardMarkup(save, index === 0)).join("")}</div>
+    <div class="save-slot-list">${saves.map((save, index) => saveCardMarkup(save, index === 0, rules)).join("")}</div>
     <p class="save-selection-note">读取手动存档或上一局快照时，会先把当前活动存档保留为新的上一局快照。</p>`;
   return openDialog({ title: "读取存档", content: body, confirmText: "读取此档", cancelText: inGame ? "返回菜单" : "返回主菜单",
     onConfirm: async () => {
@@ -29,13 +30,13 @@ export async function chooseLoadSlot(saves, { inGame = false } = {}) {
   });
 }
 
-export async function saveGameDialog({ getSlots, onSave }) {
+export async function saveGameDialog({ getSlots, onSave, rules = {} }) {
   const slots = getSlots();
   const selectedId = (slots.find((slot) => slot.empty && !slot.invalid) ?? slots[0])?.id;
   const body = document.createElement("div");
   body.className = "save-selection";
   body.innerHTML = `<p class="modal-description">选择一个手动存档位。保存当前月份、钱粮、武将与任务进度；之后的自动存档和新游戏不会覆盖这些记录。</p>
-    <div class="save-slot-list">${slots.map((slot) => saveCardMarkup(slot, slot.id === selectedId)).join("")}</div>
+    <div class="save-slot-list">${slots.map((slot) => saveCardMarkup(slot, slot.id === selectedId, rules)).join("")}</div>
     <p class="save-selection-note">自动存档仍然持续更新。手动记录同时保存战略局面与所有跨月战场；月间暂停的战役可以正常存档。</p>`;
   return openDialog({ title: "保存游戏", content: body, confirmText: "保存至此处", cancelText: "返回菜单",
     onConfirm: async () => {

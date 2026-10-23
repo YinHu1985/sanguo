@@ -8,6 +8,7 @@ import { simulateBattleMonth } from "./battle-simulation.js";
 import { normalizeCityDefense, applyWallDevelopment } from "./city-defense.js";
 import { addEquipment, applyFormationLosses, autoComposition, compositionEquipment, EQUIPMENT_KEYS, equipmentAvailable, formationComposition, primaryTroopType, resizeComposition, sumEquipment } from "./troops.js";
 import { calculateCombatStats } from "./combat-stats.js";
+import { canIssueCommand, consumeCommand } from "./commands.js";
 
 const clamp = (value, min = 0, max = 100) => Math.max(min, Math.min(max, value));
 const cityById = (state, id) => state.cities.find((city) => city.id === id);
@@ -34,7 +35,7 @@ function mutableRelation(state, firstId, secondId) {
 
 function validateExecutor(state, cityId, officerId) {
   if (cityBesieged(state, cityId) || officerAtWar(state, officerId)) return { ok: false, message: "城池或将领正在持续战役中" };
-  if (state.commandsRemaining <= 0) return { ok: false, message: "本月指令已用尽" };
+  if (!canIssueCommand(state)) return { ok: false, message: "本月指令已用尽" };
   const city = cityById(state, cityId);
   const officer = officerById(state, officerId);
   if (!city || city.factionId !== state.playerFactionId) return { ok: false, message: "请从我方城池派遣执行武将" };
@@ -47,7 +48,7 @@ function validateExecutor(state, cityId, officerId) {
 }
 
 function spendCommand(state, officer, merit = 25) {
-  state.commandsRemaining -= 1;
+  consumeCommand(state);
   officer.acted = true;
   officer.merit = (officer.merit ?? 0) + merit;
 }
@@ -275,7 +276,7 @@ export function executeOfficerTransfer(state, sourceId, targetId, officerIds, ru
     placeOfficer(state, officer, target);
     officer.acted = true;
   }
-  state.commandsRemaining -= 1;
+  consumeCommand(state);
   const message = `${officers.map((officer) => officer.name).join("、")}由${source.name}迁任${target.name}，本月不再执行其他政令。`;
   addEvent(state, message);
   return { ok: true, message, officerIds: ids, expense };

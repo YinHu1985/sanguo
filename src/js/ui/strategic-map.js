@@ -1,4 +1,13 @@
 // Geography stays in external SVG/JSON; this controller only handles the camera.
+export function mapFocusFrame(width, height, { left = 40, right = 40, top = 30, bottom = 110 } = {}) {
+  // Leave a usable central target even if a narrow viewport has large HUDs.
+  const x1 = Math.min(left, Math.max(0, width - 60));
+  const x2 = Math.max(x1 + 40, width - right);
+  const y1 = Math.min(top, Math.max(0, height - 60));
+  const y2 = Math.max(y1 + 40, height - bottom);
+  return { width: x2 - x1, height: y2 - y1, x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
+}
+
 export class StrategicMap {
   constructor({ viewport, world, projection, onCityClick }) {
     this.viewport = viewport;
@@ -21,7 +30,7 @@ export class StrategicMap {
   }
 
   get fitScale() {
-    return Math.min((this.viewport.clientWidth - 40) / this.projection.width, (this.viewport.clientHeight - 170) / this.projection.height);
+    return Math.min((this.viewport.clientWidth - 40) / this.projection.width, (this.viewport.clientHeight - 110) / this.projection.height);
   }
 
   setCities(cities, selectedId) {
@@ -35,7 +44,7 @@ export class StrategicMap {
     const { width, height } = this.projection;
     this.camera.scale = Math.max(0.15, this.fitScale);
     this.camera.x = (this.viewport.clientWidth - width * this.camera.scale) / 2;
-    this.camera.y = 80 + (this.viewport.clientHeight - 170 - height * this.camera.scale) / 2;
+    this.camera.y = 25 + (this.viewport.clientHeight - 110 - height * this.camera.scale) / 2;
     this.initialized = true;
     this.paint();
   }
@@ -45,14 +54,24 @@ export class StrategicMap {
     const xs = cities.map((city) => city.x);
     const ys = cities.map((city) => city.y);
     const bounds = { left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) };
-    const safeWidth = Math.max(320, this.viewport.clientWidth - (detail ? 340 : 140));
-    const safeHeight = Math.max(300, this.viewport.clientHeight - 240);
+    const insets = {};
+    if (detail) {
+      const screen = this.viewport.closest(".strategy-screen");
+      const viewportRect = this.viewport.getBoundingClientRect();
+      const leftPanel = screen?.querySelector(".city-detail-panel");
+      const rightPanel = screen?.querySelector(".city-roster-panel");
+      // Measure the visible windows instead of assuming details are on the right.
+      if (leftPanel?.getClientRects().length) insets.left = leftPanel.getBoundingClientRect().right - viewportRect.left + 18;
+      if (rightPanel?.getClientRects().length) insets.right = viewportRect.right - rightPanel.getBoundingClientRect().left + 18;
+      insets.top = 90; insets.bottom = 185;
+    }
+    const frame = mapFocusFrame(this.viewport.clientWidth, this.viewport.clientHeight, insets);
     const scale = cities.length === 1
       ? Math.max(this.camera.scale, this.fitScale * 2.8)
-      : Math.min(safeWidth / Math.max(330, bounds.right - bounds.left + 160), safeHeight / Math.max(280, bounds.bottom - bounds.top + 150));
+      : Math.min(frame.width / Math.max(330, bounds.right - bounds.left + 160), frame.height / Math.max(280, bounds.bottom - bounds.top + 150));
     this.camera.scale = Math.max(this.fitScale, Math.min(this.fitScale * 6, scale));
-    this.camera.x = (detail ? safeWidth / 2 + 20 : this.viewport.clientWidth / 2) - (bounds.left + bounds.right) / 2 * this.camera.scale;
-    this.camera.y = 90 + safeHeight / 2 - (bounds.top + bounds.bottom) / 2 * this.camera.scale;
+    this.camera.x = frame.x - (bounds.left + bounds.right) / 2 * this.camera.scale;
+    this.camera.y = frame.y - (bounds.top + bounds.bottom) / 2 * this.camera.scale;
     this.clampCamera();
     this.paint();
   }

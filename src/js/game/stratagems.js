@@ -3,6 +3,7 @@ import { areAllied } from "./campaign.js";
 import { NEUTRAL_FACTION_ID } from "./atlas.js";
 import { EQUIPMENT_KEYS } from "./equipment.js";
 import { activeBattleCampaigns, cityBesieged, officerAtWar } from "./war-state.js";
+import { canIssueCommand, consumeCommand } from "./commands.js";
 
 export const STRATAGEM_ACTIONS = ["rumor", "discord", "surrender", "prepareAmbush"];
 const DEFAULTS = {
@@ -51,7 +52,7 @@ export function previewStratagem(state, sourceCityId, targetCityId, officerId, a
   if (cityBesieged(state, sourceCityId) || cityBesieged(state, targetCityId) || officerAtWar(state, officerId)
     || (targetOfficerId && officerAtWar(state, targetOfficerId))) return fail("交战城池与参战将领暂不能执行战略计略");
   if (!source || source.factionId !== state.playerFactionId) return fail("请选择我方出发城池");
-  if (state.commandsRemaining <= 0) return fail("本月指令已用尽");
+  if (!canIssueCommand(state)) return fail("本月指令已用尽");
   if (!active(officer) || officer.factionId !== source.factionId || !source.officerIds?.includes(officer.id)
     || (officer.locationCityId && officer.locationCityId !== source.id) || officer.acted || officer.taskId) return fail("请选择本城尚未行动的执行武将");
   if (!amount(source.gold) || source.gold < config.cost) return fail(`计略需要金 ${config.cost}`);
@@ -187,7 +188,7 @@ export function executeStratagem(state, sourceCityId, targetCityId, officerId, a
     if (!outcome.ok) return outcome;
   }
   source.gold -= config.cost;
-  draft.commandsRemaining -= 1;
+  consumeCommand(draft);
   officer.acted = true;
   officer.merit = (officer.merit ?? 0) + 30;
   if (success && action === "rumor") {

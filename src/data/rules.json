@@ -1,6 +1,7 @@
 {
   "version": 2,
   "commandsPerMonth": 6,
+  "commandLimitEnabled": false,
   "maxDomesticOfficers": 3,
   "battleDayLimit": 30,
   "trainingCap": 100,

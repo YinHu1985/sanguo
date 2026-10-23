@@ -3,6 +3,7 @@ import { activeAmbushPreparation, getStratagemConfig, previewStratagem, STRATAGE
 import { queueTask } from "../game/tasks.js";
 import { confirmDialog, createDataTable, escapeHtml as esc, number, openDialog, showToast } from "./components.js";
 import { taskOrderNote } from "./task-windows.js";
+import { commandLimitEnabled } from "../game/commands.js";
 
 const descriptions = {
   rumor: "派遣武将在目标城散播流言，动摇当地民心。成功与否均在月末判定，失败仍消耗费用与行动。",
@@ -12,10 +13,10 @@ const descriptions = {
 };
 
 /** Preview text is shared with contract tests; all values derived from rules remain escaped. */
-export function stratagemPreviewMarkup(preview, config = {}) {
+export function stratagemPreviewMarkup(preview, config = {}, commandRules = {}) {
   const chance = Number.isFinite(preview?.chance) ? `${Math.round(preview.chance * 100)}%` : "—";
   const cost = preview?.cost ?? config.cost ?? 0;
-  return `<strong>预计费用 金 ${number(cost)} · 成功率 ${chance}</strong><p>${esc(preview?.effect ?? "选择出发城、执行武将及目标后查看具体效果。")}</p><p class="${preview?.ok ? "economy-note" : "economy-warning"}">${esc(preview?.message || (preview?.ok ? "可以签发；月末按届时局势重新校验并结算。" : "当前条件不足，不能签发。"))}</p><small>月末重新校验并结算；签发仅占用费用、一道指令与执行武将，本窗口不会提前改变目标城池或武将。</small>`;
+  return `<strong>预计费用 金 ${number(cost)} · 成功率 ${chance}</strong><p>${esc(preview?.effect ?? "选择出发城、执行武将及目标后查看具体效果。")}</p><p class="${preview?.ok ? "economy-note" : "economy-warning"}">${esc(preview?.message || (preview?.ok ? "可以签发；月末按届时局势重新校验并结算。" : "当前条件不足，不能签发。"))}</p><small>月末重新校验并结算；签发仅占用费用、${commandLimitEnabled(commandRules) ? "一道指令与" : ""}执行武将，本窗口不会提前改变目标城池或武将。</small>`;
 }
 
 /** Show only a still-owned, unconsumed and unexpired preparation using the engine's validity check. */
@@ -62,7 +63,7 @@ export function createStratagemUI({ getState, rules, onChange = () => {} }) {
     const preview = () => previewStratagem(getState(), sourceInput.value, targetCityId, executorInput.value, action, rules, options());
     const refresh = () => {
       const checked = preview();
-      body.querySelector("[data-stratagem-preview]").innerHTML = stratagemPreviewMarkup(checked, config);
+      body.querySelector("[data-stratagem-preview]").innerHTML = stratagemPreviewMarkup(checked, config, getState());
       const button = body.closest(".modal")?.querySelector(".dialog-confirm");
       if (button) { button.disabled = !checked.ok; button.title = checked.ok ? "签发后在月末结算" : checked.message; }
     };

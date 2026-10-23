@@ -1,6 +1,7 @@
 import { addEvent } from "./state.js";
 import { NEUTRAL_FACTION_ID } from "./atlas.js";
 import { activeBattleCampaigns, cityBesieged, syncCampaignEconomy, ordinaryGarrisonTroops, officerAtWar } from "./war-state.js";
+import { canIssueCommand, consumeCommand } from "./commands.js";
 
 const localOfficers = (state, city) => [...new Set(city.officerIds ?? [])]
   .map((id) => state.officers.find((officer) => officer.id === id))
@@ -109,7 +110,7 @@ export function applyAnnualHarvest(state, rules) {
 }
 
 export function executeGrainTrade(state, cityId, officerId, direction, goldAmount, rules) {
-  if (state.commandsRemaining <= 0) return { ok: false, message: "本月指令已用尽" };
+  if (!canIssueCommand(state)) return { ok: false, message: "本月指令已用尽" };
   const city = state.cities.find((entry) => entry.id === cityId);
   if (cityBesieged(state, cityId)) return { ok: false, message: "交战城池暂不能买卖军粮" };
   const officer = state.officers.find((entry) => entry.id === officerId);
@@ -129,7 +130,7 @@ export function executeGrainTrade(state, cityId, officerId, direction, goldAmoun
   city.food += foodDelta;
   officer.acted = true;
   officer.merit = (officer.merit ?? 0) + 15;
-  state.commandsRemaining -= 1;
+  consumeCommand(state);
   const message = `${direction === "buy" ? "买入" : "卖出"}粮 ${food.toLocaleString()}，金 ${goldDelta > 0 ? "+" : ""}${goldDelta.toLocaleString()}`;
   addEvent(state, `${city.name}：${officer.name}${message}。`);
   return { ok: true, message, rate, goldDelta, foodDelta };

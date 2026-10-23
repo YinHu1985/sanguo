@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "defaultMode": "none",
+  "modes": [
+    { "id": "none", "label": "原地图", "description": "保留山川原貌，仅显示城池与所选交通线。", "opacity": 0, "legend": { "display": "none", "full": false } },
+    { "id": "faction", "resolver": "faction", "label": "势力", "description": "同一势力连成同色控制区，攻占城池后随归属更新。", "opacity": 0.38, "legend": { "display": "selection", "full": true } },
+    { "id": "diplomacy", "resolver": "diplomacy", "label": "外交关系", "description": "以我方为参照：区分本势力、有效盟友、交战方、未结盟及无主。", "opacity": 0.4, "legend": { "display": "all", "palette": "diplomacy", "reference": "player", "full": false } },
+    { "id": "province", "resolver": "province", "label": "州郡", "description": "按城池所属州郡着色，与当前势力归属无关。", "opacity": 0.32, "legend": { "display": "selection", "full": true } }
+  ],
+  "boundaryNote": "色块为城池控制范围示意，非史实疆界。",
+  "colors": { "neutral": "#96958a", "unknown": "#858b81" },
+  "diplomacy": [
+    { "id": "self", "label": "我方", "color": "#387c70" },
+    { "id": "ally", "label": "同盟", "color": "#497cad" },
+    { "id": "war", "label": "交战", "color": "#b14f3f" },
+    { "id": "unaffiliated", "label": "未结盟", "color": "#a69776" },
+    { "id": "neutral", "label": "无主", "color": "#96958a" }
+  ],
+  "provinces": [
+    { "id": "司隶", "label": "司隶", "color": "#9d7251" },
+    { "id": "豫州", "label": "豫州", "color": "#be8058" },
+    { "id": "兖州", "label": "兖州", "color": "#6d8360" },
+    { "id": "徐州", "label": "徐州", "color": "#ac6d7c" },
+    { "id": "青州", "label": "青州", "color": "#638b9c" },
+    { "id": "冀州", "label": "冀州", "color": "#b2934e" },
+    { "id": "幽州", "label": "幽州", "color": "#8a789b" },
+    { "id": "并州", "label": "并州", "color": "#5e8173" },
+    { "id": "凉州", "label": "凉州", "color": "#b18a53" },
+    { "id": "益州", "label": "益州", "color": "#5f9470" },
+    { "id": "荆州", "label": "荆州", "color": "#a96c55" },
+    { "id": "扬州", "label": "扬州", "color": "#5d9294" },
+    { "id": "交州", "label": "交州", "color": "#8c875b" }
+  ]
+}

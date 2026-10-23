@@ -24,7 +24,7 @@
   --surface-paper: url('../assets/ui/paper-fibers.svg'), linear-gradient(110deg, #f2e9d3, #e7dcc0 80%);
   --surface-silk: url('../assets/ui/cloud-brocade.svg'), linear-gradient(120deg, #30494a, #1d3234);
   --frame-shadow: inset 0 0 0 1px #f3dfad88, inset 0 0 0 4px #78694722, 0 2px 0 #25352dcc, 0 12px 28px #142b2d40;
-  --hud-city-top: 112px;
+  --hud-city-top: 18px;
   --hud-orders-height: 226px;
   --hud-bottom: 25px;
   --hud-gap: 12px;
@@ -91,7 +91,7 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--red); }
   backdrop-filter: none;
   border-radius: 1px;
 }
-.strategy-screen .map-toolbar, .battle-header {
+.strategy-screen .map-toolbar, .ornate-map-window, .battle-header {
   background: var(--surface-silk);
   border: 1px solid #ba9f69;
   box-shadow: var(--frame-shadow);
@@ -101,6 +101,10 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--red); }
 .strategy-screen .map-toolbar { padding: 13px 17px; }
 .strategy-screen .map-toolbar h2 { text-shadow: 0 2px #102528; }
 .strategy-screen .map-toolbar .kicker { color: #c9b883; }
+/* The retired atlas title window remains available as a reusable dark silk card. */
+.ornate-map-window { position: relative; padding: 13px 17px; }
+.ornate-map-window h2 { margin: 4px 0 9px; color: #eee0b9; font: 700 25px var(--serif); letter-spacing: .08em; text-shadow: 0 2px #102528; }
+.ornate-map-window .kicker { color: #c9b883; }
 .faction-legend { color: #d6d3bc; }
 .legend-dot { border-radius: 0; width: 7px; height: 9px; box-shadow: 0 0 0 1px #d8c48766; }
 .strategy-screen .turn-ribbon { border-top: 3px solid #ae9056; }
@@ -125,6 +129,7 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--red); }
 
 /* Corner fittings only decorate window edges, never intercept controls. */
 .strategy-screen .map-toolbar::before,
+.ornate-map-window::before,
 .strategy-screen .turn-ribbon::before,
 .strategy-screen .command-deck::before,
 .atlas-tools::before,
@@ -139,6 +144,7 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--red); }
   pointer-events: none;
 }
 .strategy-screen .map-toolbar::after,
+.ornate-map-window::after,
 .strategy-screen .command-deck::after,
 .atlas-tools::after,
 .modal-footer::after {
@@ -420,9 +426,16 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--red); }
   .topbar .btn-quiet { padding: 6px 8px; }
   .strategy-screen .map-toolbar { padding: 10px; }
 }
+@media (min-width: 701px) and (max-width: 760px) {
+  /* The date ribbon puts its command counter on a second row here. */
+  .strategy-screen .city-roster-panel { top: 140px; max-height: calc(100% - 392px); }
+}
 @media (max-width: 700px) {
-  .strategy-screen { --hud-city-top: 112px; --hud-bottom: 190px; --hud-orders-height: 200px; --hud-gap: 10px; }
-  .strategy-screen .command-button { min-height: 40px; }
+  .strategy-screen { min-height: 780px; --hud-city-top: 105px; --hud-bottom: 255px; --hud-orders-height: 170px; --hud-gap: 10px; }
+  .strategy-screen .command-button { min-height: 34px; padding: 4px 6px; grid-template-columns: 24px 1fr; }
+  .strategy-screen .command-icon { width: 24px; height: 24px; font-size: 13px; }
+  .strategy-screen .command-deck { padding: 9px; }
+  .strategy-screen .command-deck-heading { padding-bottom: 5px; margin-bottom: 5px; }
 }
 @media (max-width: 480px) {
   .modal-backdrop { padding: 10px; }

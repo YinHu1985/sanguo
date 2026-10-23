@@ -2,6 +2,7 @@ import { grainExchangeRate, previewCityEconomy } from "../game/economy.js";
 import { queueTask } from "../game/tasks.js";
 import { taskOrderNote } from "./task-windows.js";
 import { availableOfficers, getCity } from "../game/rules.js";
+import { canIssueCommand, commandLimitEnabled } from "../game/commands.js";
 import { escapeHtml as esc, number, openDialog, showToast } from "./components.js";
 
 export function cityEconomyMarkup(state, city, rules) {
@@ -23,7 +24,8 @@ export function createEconomyUI({ getState, rules, onChange }) {
     const city = getCity(state, cityId);
     if (!city || city.factionId !== state.playerFactionId) return showToast("请在本势力城池与商人交易", "error");
     const officers = availableOfficers(state, city);
-    if (!officers.length || state.commandsRemaining <= 0) return showToast("交易需要一名未行动武将与一道指令", "error");
+    if (!officers.length || !canIssueCommand(state)) return showToast(commandLimitEnabled(state)
+      ? "交易需要一名未行动武将与一道指令" : "交易需要一名未行动武将", "error");
     const rate = grainExchangeRate(state.month, rules);
     const body = document.createElement("div");
     body.className = "merchant-window";

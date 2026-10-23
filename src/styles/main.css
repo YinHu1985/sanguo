@@ -97,6 +97,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .command-block { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
 .command-block strong { min-width: 37px; color: var(--ink); }
 .command-pips { display: flex; gap: 5px; }
+.command-pips[hidden] { display: none; }
 .command-pip { width: 10px; height: 23px; border: 1px solid #8b7859; background: #ccb47c; transform: skew(-7deg); }
 .command-pip.spent { background: transparent; opacity: .36; }
 
@@ -696,30 +697,32 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .strategy-screen .season-mark { width: 38px; height: 42px; }
 .strategy-screen .command-pips { gap: 3px; }
 .strategy-screen .command-pip { width: 8px; }
-.map-compass { position: absolute; left: 34px; top: 140px; z-index: 3; display: grid; justify-items: center; color: #465d4a; font: 10px var(--serif); pointer-events: none; }
+.map-compass { position: absolute; left: 34px; top: 26px; z-index: 3; display: grid; justify-items: center; color: #465d4a; font: 10px var(--serif); pointer-events: none; }
 .map-compass i { font: 43px/40px var(--serif); color: #8f492f; }
 .map-compass small { font-size: 9px; line-height: 18px; }
-.atlas-tools { position: absolute; z-index: 11; left: 22px; bottom: 22px; max-width: calc(100% - 44px); padding: 10px 12px; border: 1px solid #cabb91; background: rgba(247,237,214,.96); box-shadow: 0 8px 28px #273c3138; }
+.atlas-tools { position: absolute; z-index: 11; left: auto; right: 22px; bottom: 25px; width: 460px; max-width: calc(100% - 330px); max-height: 215px; overflow: auto; padding: 10px 12px; border: 1px solid #cabb91; background: rgba(247,237,214,.96); box-shadow: 0 8px 28px #273c3138; }
 .atlas-tools button, .atlas-tools select { border: 1px solid #b5a782; background: #f3e9cf; color: #354637; min-height: 30px; padding: 4px 9px; font-size: 11px; }
 .atlas-tools button:hover { background: #e6d8b8; border-color: #8c6b3e; }
-.atlas-navigation { display: flex; gap: 5px; align-items: center; }
+.atlas-navigation { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
 .atlas-navigation output { width: 44px; text-align: center; font-size: 11px; font-variant-numeric: tabular-nums; }
 .atlas-navigation #map-hud-toggle { margin-left: auto; color: #f6e6c5; background: #314e3d; }
-.atlas-search-row { display: flex; gap: 7px; margin-top: 8px; }
-.city-search-form { display: flex; gap: 4px; }
-.city-search-form input { width: 150px; min-width: 0; border: 1px solid #b8a782; padding: 6px 8px; background: #fff6e0; font-size: 11px; color: #344a3c; }
-.atlas-layer-row { display: flex; align-items: center; gap: 12px; margin-top: 8px; font-size: 10px; color: #6e6b56; }
+.atlas-search-row { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 8px; }
+.city-search-form { display: flex; flex: 1; gap: 4px; min-width: 155px; }
+.city-search-form input { width: 150px; flex: 1; min-width: 0; border: 1px solid #b8a782; padding: 6px 8px; background: #fff6e0; font-size: 11px; color: #344a3c; }
+.atlas-layer-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 8px; font-size: 10px; color: #6e6b56; }
 .atlas-layer-row label { display: flex; align-items: center; gap: 3px; }
 .atlas-layer-row input { accent-color: #48624b; margin: 0; }
 .atlas-layer-row small { margin-left: auto; font-size: 9px; }
+.map-color-label { gap: 5px !important; }
 .atlas-map-note { position: absolute; bottom: 7px; right: 16px; z-index: 4; pointer-events: none; font-size: 9px; color: #4c6156; text-shadow: 0 1px #e9eee4; }
-.strategy-screen .city-roster-panel { top: 220px; left: 22px; width: 202px; max-height: 290px; }
+.strategy-screen .city-roster-panel { top: 112px; left: auto; right: 22px; width: 238px; max-height: calc(100% - 364px); }
 .strategy-screen .city-roster-panel .delegation-note { display: none; }
-.strategy-screen .city-detail-panel { top: 98px; width: 270px; max-height: calc(100% - 325px); overflow: auto; }
+.strategy-screen .city-list { display: block; }
+.strategy-screen .city-detail-panel { top: 18px; left: 22px; right: auto; width: 286px; max-height: calc(100% - 281px); overflow: auto; }
 .selected-city-title { position: relative; }
 .map-panel-close { position: absolute; top: 7px; right: 7px; border: 0; background: transparent; color: #77694c; font-size: 18px; padding: 0 4px; }
 .city-location { margin: 0 18px 12px; color: #827358; font-size: 10px; line-height: 1.6; }
-.strategy-screen .command-deck { width: 270px; bottom: 25px; }
+.strategy-screen .command-deck { left: 22px; right: auto; width: 286px; bottom: 25px; }
 .strategy-screen .chronicle { display: none; }
 .strategy-screen.map-reading .city-roster-panel, .strategy-screen.map-reading .city-detail-panel, .strategy-screen.map-reading .command-deck { display: none; }
 .atlas-directory-search { display: block; width: 100%; padding: 10px; margin: 0 0 12px; border: 1px solid #b5a782; background: #fff7e3; }
@@ -730,9 +733,9 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .strategy-screen .map-toolbar { top: 18px; }
   .strategy-screen .turn-ribbon { width: calc(100% - 335px); }
   .strategy-screen .turn-ribbon .command-pips, .strategy-screen .turn-ribbon #income-hint { display: none; }
-  .strategy-screen .city-roster-panel { display: none; }
+  .strategy-screen .city-roster-panel { display: block; top: 112px; width: 218px; }
   .strategy-screen .strategic-map { height: 100%; }
-  .strategy-screen .city-detail-panel { top: 98px; }
+  .strategy-screen .city-detail-panel { top: 18px; }
   .strategy-screen .command-deck { bottom: 25px; }
 }
 @media (max-width: 700px) {
@@ -744,12 +747,13 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .strategy-screen .date-block strong { font-size: 12px; }
   .strategy-screen .date-block .season-mark, .strategy-screen .command-block { display: none; }
   .strategy-screen #end-turn-button { margin-top: 6px; padding: 5px; font-size: 11px; width: 100%; }
-  .atlas-tools { left: 10px; bottom: 26px; padding: 8px; max-width: calc(100% - 20px); }
+  .atlas-tools { left: auto; right: 10px; bottom: 26px; padding: 8px; max-width: calc(100% - 20px); }
   .atlas-search-row { flex-wrap: wrap; }
   .atlas-tools button, .atlas-tools select { padding-inline: 6px; }
   .atlas-layer-row small { font-size: 8px; }
-  .strategy-screen .city-detail-panel { top: 105px; left: auto; right: 10px; width: 244px; max-height: calc(100% - 420px); }
-  .strategy-screen .command-deck { top: auto; left: auto; right: 10px; bottom: 190px; width: 244px; }
+  .strategy-screen .city-roster-panel { display: none; }
+  .strategy-screen .city-detail-panel { top: 105px; left: 10px; right: auto; width: 244px; max-height: calc(100% - 420px); }
+  .strategy-screen .command-deck { top: auto; left: 10px; right: auto; bottom: 255px; width: 244px; }
   .strategy-screen .command-button { min-height: 44px; }
   .strategy-screen .command-button small { display: none; }
   .map-compass { left: 20px; }

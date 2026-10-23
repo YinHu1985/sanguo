@@ -9,8 +9,8 @@
     <link rel="icon" href="./assets/seal.svg?v=18" type="image/svg+xml" />
     <link rel="preload" href="./assets/fonts/SourceHanSansCN-Regular.otf" as="font" type="font/otf" crossorigin />
     <link rel="preload" href="./assets/fonts/AlimamaDaoLiTi-Regular.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="stylesheet" href="./styles/main.css?v=20261021-7" />
-    <link rel="stylesheet" href="./styles/classic-theme.css?v=20261021-10" />
+    <link rel="stylesheet" href="./styles/main.css?v=20261023-25" />
+    <link rel="stylesheet" href="./styles/classic-theme.css?v=20261023-24" />
     <link rel="stylesheet" href="./styles/tasks.css?v=20261021-9" />
     <link rel="stylesheet" href="./styles/story-dialog.css?v=20261021-10" />
     <link rel="stylesheet" href="./styles/warfare.css?v=20261022-14" />
@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="./styles/typography.css?v=20261022-18" />
     <link rel="stylesheet" href="./styles/military.css?v=20261023-21" />
     <link rel="stylesheet" href="./styles/war-campaigns.css?v=20261023-23" />
+    <link rel="stylesheet" href="./styles/map-colors.css?v=20261023-24" />
   </head>
   <body>
     <section id="main-menu" class="main-menu" aria-label="游戏主菜单">
@@ -89,16 +90,10 @@
             </aside>
 
             <section class="map-card" aria-label="州郡地图">
-              <div class="map-toolbar">
-                <div>
-                  <span class="kicker">山川形胜 · 十三州</span>
-                  <h2>汉末天下 <small id="atlas-city-count"></small></h2>
-                </div>
-                <div id="faction-legend" class="faction-legend"></div>
-              </div>
               <div id="strategic-map" class="strategic-map" tabindex="0" aria-label="天下地图，可拖动或使用方向键平移，滚轮缩放">
                 <div id="map-world" class="map-world">
                   <img src="./assets/map/strategic-map.svg" class="atlas-geography" alt="汉末中国地理示意：海岸、山脉与主要水系" draggable="false" />
+                  <svg id="territory-layer" class="territory-layer" viewBox="0 0 1800 1500" aria-hidden="true"></svg>
                   <svg id="route-layer" class="route-layer" viewBox="0 0 1800 1500" aria-hidden="true"></svg>
                   <div id="city-node-layer"></div>
                 </div>
@@ -123,10 +118,12 @@
                   <button id="atlas-directory" type="button">城池图录</button>
                 </div>
                 <div class="atlas-layer-row">
+                  <label class="map-color-label" for="map-color-mode">地图<select id="map-color-mode" aria-label="地图染色方案"><option value="none">原地图</option><option value="faction">势力</option><option value="diplomacy">外交关系</option><option value="province">州郡</option></select></label>
                   <label><input id="map-routes-toggle" type="checkbox" />交通线</label>
                   <label><input id="map-labels-toggle" type="checkbox" checked />城名</label>
-                  <small>拖动地图 · 滚轮缩放 · 点击城池理政</small>
                 </div>
+                <div id="map-color-legend" class="map-color-legend" aria-label="地图染色图例" aria-live="polite" hidden></div>
+                <p id="map-color-note" class="map-color-note"></p>
               </div>
               <div class="atlas-map-note">山川与古城位置示意 · 黄河下游取汉魏大致走向</div>
             </section>
@@ -236,6 +233,6 @@
 
     <div id="modal-root"></div>
     <div id="toast-root" class="toast-root" aria-live="polite"></div>
-    <script type="module" src="./js/app.js?v=20261023-23"></script>
+    <script type="module" src="./js/app.js?v=20261023-25"></script>
   </body>
 </html>

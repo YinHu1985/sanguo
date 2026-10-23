@@ -2,7 +2,7 @@ import { showToast } from "./components.js";
 import { chooseLoadSlot } from "./save-windows.js";
 export { saveCardMarkup } from "./save-windows.js";
 
-export function createMainMenu({ getSaves, onNew, onLoad, onContinue, onAudio }) {
+export function createMainMenu({ getSaves, onNew, onLoad, onContinue, onAudio, rules = {} }) {
   const root = document.querySelector("#main-menu");
   let busy = false;
   let canContinue = false;
@@ -18,7 +18,7 @@ export function createMainMenu({ getSaves, onNew, onLoad, onContinue, onAudio })
   async function chooseSave() {
     const saves = getSaves();
     if (!saves.length) { showToast("当前浏览器暂无可读取的存档", "error"); return; }
-    const chosen = await chooseLoadSlot(saves);
+    const chosen = await chooseLoadSlot(saves, { rules });
     if (chosen) await onLoad(chosen);
   }
   const actions = { new: onNew, load: chooseSave, continue: onContinue, audio: onAudio };

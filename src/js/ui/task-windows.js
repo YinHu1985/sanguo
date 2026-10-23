@@ -2,6 +2,7 @@ import { getCity, getOfficer } from "../game/rules.js";
 import { taskIsActive, taskLedgerRecords } from "../game/monthly-settlement.js";
 import { escapeHtml as esc, number, openDialog } from "./components.js";
 import { EQUIPMENT_KEYS, EQUIPMENT_NAMES } from "../game/equipment.js";
+import { commandLimitEnabled } from "../game/commands.js";
 
 export { taskIsActive } from "../game/monthly-settlement.js";
 
@@ -16,7 +17,7 @@ export function taskTimingText(rules, kind) {
 }
 
 export function taskOrderNote(rules, kind) {
-  return `<p class="task-order-note"><strong>任务制</strong> ${esc(taskTimingText(rules, kind))}<br>签发时占用一道指令、执行武将和所需物资；可在「任务簿」查看进度。</p>`;
+  return `<p class="task-order-note"><strong>任务制</strong> ${esc(taskTimingText(rules, kind))}<br>签发时占用${commandLimitEnabled(rules) ? "一道指令、" : ""}执行武将和所需物资；${commandLimitEnabled(rules) ? "" : "测试期间指令数不限；"}可在「任务簿」查看进度。</p>`;
 }
 
 export function taskCounts(state) {

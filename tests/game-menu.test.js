@@ -262,8 +262,8 @@ test("title and game menus share the load chooser and campaign-switch implementa
   const app = await readFile(new URL("../src/js/app.js", import.meta.url), "utf8");
   const title = await readFile(new URL("../src/js/ui/main-menu.js", import.meta.url), "utf8");
   assert.match(title, /import \{ chooseLoadSlot \} from "\.\/save-windows\.js"/);
-  assert.match(title, /await chooseLoadSlot\(saves\)/);
-  assert.match(app, /await chooseLoadSlot\(listCampaignSaves\(scenario\.id\), \{ inGame: true \}\)/);
+  assert.match(title, /await chooseLoadSlot\(saves, \{ rules \}\)/);
+  assert.match(app, /await chooseLoadSlot\(listCampaignSaves\(scenario\.id\), \{ inGame: true, rules \}\)/);
   assert.match(app, /onLoad: loadFromMenu/);
   assert.match(app, /nextAction = \(\) => loadFromMenu\(slotId\)/);
   const load = app.slice(app.indexOf("async function loadFromMenu("), app.indexOf("function setMapReading("));

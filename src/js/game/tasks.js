@@ -7,6 +7,7 @@ import { formationOfficerIds, normalizeFormations } from "./army.js";
 import { EQUIPMENT_KEYS } from "./equipment.js";
 import { executeStratagem, getStratagemConfig } from "./stratagems.js";
 import { cityBesieged, officerAtWar } from "./war-state.js";
+import { canIssueCommand, consumeCommand } from "./commands.js";
 
 const KINDS = new Set(["domestic", "recruit", "transfer", "governor", "search", "employ", "officerTransfer", "diplomacy", "trade", "march", "stratagem"]);
 const ACTIVE = new Set(["running", "awaiting_battle", "in_battle"]);
@@ -216,7 +217,7 @@ export function queueTask(state, input, rules) {
   if (state.turnResolution) return failure("正在结算回合，暂不能下达新任务");
   if (getReadyBattleTask(state)) return failure("请先处理正在进行的战斗");
   if (!input || !KINDS.has(input.kind)) return failure("无此任务类型");
-  if (state.commandsRemaining <= 0) return failure("本月指令已用尽");
+  if (!canIssueCommand(state)) return failure("本月指令已用尽");
   let order;
   try {
     order = JSON.parse(JSON.stringify({ kind: input.kind, cityId: input.cityId, officerIds: input.officerIds, payload: input.payload ?? {} }, (_, value) => {
@@ -264,7 +265,7 @@ export function queueTask(state, input, rules) {
   state.nextTaskId = number + 1;
   state.tasks.push(task);
   for (const key of RESOURCE_KEYS) source[key] = resourceValue(source, key) - reservation[key];
-  state.commandsRemaining -= 1;
+  consumeCommand(state);
   for (const id of order.officerIds) Object.assign(getOfficer(state, id), { acted: true, taskId: task.id });
   addEvent(state, `${source.name}下达${task.title}任务，${timing.duration ? `${timing.duration}回合后完成` : "立即执行"}。`);
   const resultTask = timing.timing === "immediate" ? completeTask(state, task.id, rules, submittedTurn, Math.random) : task;

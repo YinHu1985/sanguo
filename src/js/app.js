@@ -1,4 +1,5 @@
 import { saveState, createInitialState, addEvent } from "./game/state.js";
+import { canIssueCommand, commandLimitEnabled } from "./game/commands.js";
 import {
   availableOfficers,
   cityOfficers,
@@ -30,6 +31,7 @@ import { createTaskUI, taskOrderNote, taskCounts } from "./ui/task-windows.js";
 import { showStoryDialog, buildTurnOpening } from "./ui/story-dialog.js";
 import { applyAtlasToScenario } from "./game/atlas.js";
 import { StrategicMap } from "./ui/strategic-map.js";
+import { MapColorLayer } from "./ui/map-colors.js";
 import { areAllied, getCampaignStatus } from "./game/campaign.js";
 import { cityTheme, createCampaignUI } from "./ui/campaign-windows.js";
 import { dailyFoodCost, grainExchangeRate, monthlyFoodCost, previewCityEconomy } from "./game/economy.js";
@@ -64,6 +66,9 @@ let systemMenuOpen = false;
 let switchingCampaign = false;
 let advancingMonth = false;
 let strategicMap;
+let mapColors;
+let territoryData;
+let mapColorConfig;
 let state;
 let battle = null;
 let battleMode = null;
@@ -86,13 +91,15 @@ const avatarColors = ["#3c6651", "#8a4b3b", "#596777", "#806641", "#5e4d6b", "#3
 
 async function init() {
   try {
-    [scenario, rules, battleMap, officerBios, atlas, cityThemes] = await Promise.all([
+    [scenario, rules, battleMap, officerBios, atlas, cityThemes, territoryData, mapColorConfig] = await Promise.all([
       fetch("./data/scenario.json").then(checkResponse).then((response) => response.json()),
       fetch("./data/rules.json").then(checkResponse).then((response) => response.json()),
       fetch("./data/battle-map.json").then(checkResponse).then((response) => response.json()),
       fetch("./data/officer-bios.json").then(checkResponse).then((response) => response.json()),
       fetch("./data/strategic-atlas.json").then(checkResponse).then((response) => response.json()),
-      fetch("./data/city-themes.json").then(checkResponse).then((response) => response.json())
+      fetch("./data/city-themes.json").then(checkResponse).then((response) => response.json()),
+      fetch("./data/strategic-territories.json").then(checkResponse).then((response) => response.json()),
+      fetch("./data/map-modes.json").then(checkResponse).then((response) => response.json())
     ]);
     scenario = applyAtlasToScenario(scenario, atlas);
     // Booting to the title screen never resumes monthly work or replaces a save.
@@ -114,10 +121,12 @@ async function init() {
       projection: atlas.projection,
       onCityClick: (cityId) => selectCity(cityId)
     });
+    mapColors = new MapColorLayer({ layer: document.querySelector("#territory-layer"), legend: document.querySelector("#map-color-legend"),
+      note: document.querySelector("#map-color-note"), selector: document.querySelector("#map-color-mode"), territories: territoryData, config: mapColorConfig });
     bindStaticEvents();
     bindMapControls();
     renderStrategy();
-    mainMenu = createMainMenu({ getSaves: () => listCampaignSaves(scenario.id),
+    mainMenu = createMainMenu({ getSaves: () => listCampaignSaves(scenario.id), rules,
       onNew: () => campaignUI.chooseScenario({ allowCancel: true, hasExistingSave: listCampaignSaves(scenario.id).length > 0 }), onLoad: loadFromMenu,
       onContinue: () => { enterGame(); renderStrategy(); }, onAudio: () => gameAudio.openSettings() });
     showMainMenu();
@@ -173,7 +182,6 @@ function setMapReading(reading) {
 }
 
 function bindMapControls() {
-  document.querySelector("#atlas-city-count").textContent = `${state.cities.length} 城`;
   document.querySelector("#city-search-options").innerHTML = state.cities.flatMap((city) => [city.name, ...(city.aliases ?? [])].map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(city.province)} · ${escapeHtml(city.name)}</option>`)).join("");
   const regionSelect = document.querySelector("#map-region");
   regionSelect.innerHTML = '<option value="">九州分览</option>' + [...new Set(state.cities.map((city) => city.region))].map((region) => `<option value="${escapeHtml(region)}">${escapeHtml(region)}</option>`).join("");
@@ -307,8 +315,12 @@ function renderTurnRibbon() {
   document.querySelector("#date-label").textContent = `${eraLabel()} · ${monthNames[state.month - 1]}`;
   const distance = (rules.economy.harvestMonth - state.month + 12) % 12 || 12;
   document.querySelector("#income-hint").textContent = `每月收金 · 距下次收粮 ${distance} 月 · 粮价 1:${grainExchangeRate(state.month, rules)}`;
-  document.querySelector("#command-label").textContent = `${state.commandsRemaining} / ${state.commandsMax}`;
-  document.querySelector("#command-pips").innerHTML = Array.from({ length: state.commandsMax }, (_, index) => `<i class="command-pip ${index >= state.commandsRemaining ? "spent" : ""}"></i>`).join("");
+  const limitedCommands = commandLimitEnabled(state);
+  document.querySelector("#command-label").textContent = limitedCommands ? `${state.commandsRemaining} / ${state.commandsMax}` : "不限";
+  document.querySelector("#command-label").title = limitedCommands ? "君主本月可用指令" : "测试期间关闭令牌限制；武将行动与行动费用不变";
+  const commandPips = document.querySelector("#command-pips");
+  commandPips.hidden = !limitedCommands;
+  commandPips.innerHTML = limitedCommands ? Array.from({ length: state.commandsMax }, (_, index) => `<i class="command-pip ${index >= state.commandsRemaining ? "spent" : ""}"></i>`).join("") : "";
 }
 
 function renderCityList() {
@@ -324,12 +336,7 @@ function renderCityList() {
 }
 
 function renderStrategicMap() {
-  const legend = document.querySelector("#faction-legend");
-  const owned = new Set(playerCities(state).flatMap((city) => city.adjacent));
-  const nearby = new Set(state.cities.filter((city) => owned.has(city.id)).map((city) => city.factionId));
-  const shownFactions = state.factions.filter((faction) => faction.id === state.playerFactionId || nearby.has(faction.id)).slice(0, 6);
-  legend.innerHTML = shownFactions.map((faction) => `<span><i class="legend-dot" style="background:${faction.color}"></i>${escapeHtml(faction.name)}</span>`).join("") + `<button class="text-button" id="legend-all-factions">天下势力 ↗</button>`;
-  legend.querySelector("button").addEventListener("click", () => campaignUI.showFactions());
+  mapColors.render(state);
 
   const renderedRoutes = new Set();
   const routes = [];
@@ -390,7 +397,7 @@ function renderCityDetail() {
   document.querySelector("#city-economy").innerHTML = cityEconomyMarkup(state, city, rules);
   const tradeButton = document.querySelector("#city-trade-button");
   tradeButton.hidden = !isOwn;
-  tradeButton.disabled = !state.started || Boolean(state.turnResolution) || getCampaignStatus(state).status !== "active" || state.commandsRemaining <= 0 || !availableOfficers(state, city).length || state.pendingInvasions?.some((item) => !item.resolved);
+  tradeButton.disabled = !state.started || Boolean(state.turnResolution) || getCampaignStatus(state).status !== "active" || !canIssueCommand(state) || !availableOfficers(state, city).length || state.pendingInvasions?.some((item) => !item.resolved);
   if (activeBattleCampaigns(state).some((record) => record.targetCityId === city.id)) {
     tradeButton.disabled = true;
     tradeButton.title = "城池交战中，军需由战场统一管理";
@@ -504,7 +511,7 @@ async function openCommandGroup(categoryId) {
   const isOwn = city.factionId === state.playerFactionId;
   body.querySelectorAll("[data-command]").forEach((button) => {
     const id = button.dataset.command;
-    if (state.commandsRemaining <= 0 && commandSpendingActions.has(id)) {
+    if (!canIssueCommand(state) && commandSpendingActions.has(id)) {
       button.disabled = true;
       button.title = "本月直辖指令已经用尽";
     }
@@ -842,7 +849,7 @@ async function endMonth() {
     title: "结束本月",
     mark: "月",
     confirmText: "进入下月",
-    message: `尚余 <strong>${state.commandsRemaining}</strong> 道指令；当前 <strong>${taskCounts(state).active}</strong> 项任务正在执行。<br>先完成到期任务，再分别推进本月所有战场，随后结算城市收入、俸禄与非参战驻军耗粮。持续战役满30日后暂停，下月继续。${activeGovernors ? `<br>${activeGovernors} 名空闲太守将自治并支付行动费用。` : ""}${harvest ? "<br>随后进入七月，新回合开始前收获全年粮食。" : ""}${warnings.length ? `<p class="economy-warning">按当前可用库存预警（待到货物资尚未计入）：<br>${warnings.join("<br>")}</p>` : ""}<br>确定结束本月吗？`
+    message: `${commandLimitEnabled(state) ? `尚余 <strong>${state.commandsRemaining}</strong> 道指令` : "测试期间本月指令不限"}；当前 <strong>${taskCounts(state).active}</strong> 项任务正在执行。<br>先完成到期任务，再分别推进本月所有战场，随后结算城市收入、俸禄与非参战驻军耗粮。持续战役满30日后暂停，下月继续。${activeGovernors ? `<br>${activeGovernors} 名空闲太守将自治并支付行动费用。` : ""}${harvest ? "<br>随后进入七月，新回合开始前收获全年粮食。" : ""}${warnings.length ? `<p class="economy-warning">按当前可用库存预警（待到货物资尚未计入）：<br>${warnings.join("<br>")}</p>` : ""}<br>确定结束本月吗？`
   });
   if (!confirmed) return;
   const begun = beginTurnResolution(state);
@@ -914,12 +921,12 @@ async function showEnemyIntel(city) {
 async function showHelp() {
   const content = `
     <p class="modal-description">建安元年末，选择任一势力经营领土、延揽人才、结交盟友，最终统一天下。天下 ${state.cities.length} 座城池均可争夺。</p>
-    <div class="result-preview"><strong>任务与运输</strong><br>城市命令在过月时完成。签发时占用指令、执行武将及所需兵员钱粮，成果尚不生效；顶部「任务簿」追踪执行中及本回合刚完成的任务。先结算到期任务，再处理月底收支及群雄行动。运输允许混合兵员、钱粮、良马、劲弩与甲胄，也可只运装备；沿己方或有效盟友城池组成的路线，一个回合送达任意联通城池，敌方与中立城池阻断路线。送往盟友的物资归盟友使用，执行武将不随运输迁任。</div>
+    <div class="result-preview"><strong>任务与运输</strong><br>城市命令在过月时完成。签发时占用${commandLimitEnabled(state) ? "指令、" : ""}执行武将及所需兵员钱粮，成果尚不生效；顶部「任务簿」追踪执行中及本回合刚完成的任务。先结算到期任务，再处理月底收支及群雄行动。运输允许混合兵员、钱粮、良马、劲弩与甲胄，也可只运装备；沿己方或有效盟友城池组成的路线，一个回合送达任意联通城池，敌方与中立城池阻断路线。送往盟友的物资归盟友使用，执行武将不随运输迁任。</div>
     <div class="result-preview"><strong>军备与科技</strong><br>各城独立储存良马、劲弩、甲胄，内政中的挑选良马、制作弓弩、打造甲胄花费金钱并派将执行。每件装备供应一名对应士兵；混编时合计全军需求，签发出征令即预扣。装备随战损减少，幸存装备随退军或入城归库。<br>左上「全局政策」管理本势力研究点，每月 +${rules.research?.monthlyGain ?? 100}，没有积累上限。科技立即扣点并永久解锁，不耗城市指令或武将行动；初始开放步兵、弓兵、重步兵、劲弩兵、骑兵，其余六种通过科技解锁。</div>
     <div class="result-preview"><strong>混编能力与射击</strong><br>每队可自由填写不同兵种人数，合计不超过主将的官职兵额，副将不增加兵额。将领能力、训练、士气与兵种共同生成统一的肉搏火力／防护、远程火力／防护、移动力和视野面板，战损及增援后重算。火力按对应士兵人数累加；移动和视野取决于编成比例，而不会随总人数减半。<br>攻击为邻接肉搏；编入一名射手也可射击，但仅贡献该射手的微小火力。射击无反击，受视野和射程限制。火矢消耗 ${rules.battle.ranged?.fireArrowActionPoints ?? 3} 行动力及金 ${rules.battle.ranged?.fireArrowGoldCost ?? 30}，射击后有 ${Math.round((rules.battle.ranged?.fireArrowChance ?? .3) * 100)}% 概率追加一次引燃效果。</div>
     <div class="result-preview"><strong>兵种伤亡倾向</strong><br>编成比例不会锁定。每次伤亡按「当前人数 × 该攻击类型的暴露系数」分摊，随后按剩余兵种重算战力与装备。暴露系数只改变谁承担伤亡，不额外放大总伤害。<br>近战（包括反击、伏击、攻城与拦截）更容易损失步兵，射击的偏向较弱，火攻默认按人数分摊。火矢先结算箭伤，再单独结算引燃。随着步兵减少，其分担能力自然下降；不额外设置前后排或掩护不足惩罚。攻城按全军兵种统一分摊，城内预备兵按步兵计入。各兵种系数可在编成表中查看。</div>
-    <div class="result-preview"><strong>战略层</strong><br>每月有 ${rules.commandsPerMonth} 道君主指令；每名武将通常只能行动一次。每城独立保存钱粮，商业决定每月金收入，农业决定每年七月回合开始前的收粮，民心影响两种收入。每月按兵力耗粮、按将领职位付俸禄：缺粮损兵，欠饷降低忠诚。任命太守后，空闲太守会在月底支付费用并自动改善最薄弱的事务。</div>
-    <div class="result-preview"><strong>商人粮市</strong><br>内政菜单、城池面板和城池全览都可进入商人窗口。按当月比例买卖粮食，不收手续费，买卖同价。七月最便宜（1金换10粮），之后逐档涨价，收获前为1金换5粮。交易仍需一名武将和一道指令。钱粮不会跨城共享。</div>
+    <div class="result-preview"><strong>战略层</strong><br>${commandLimitEnabled(state) ? `每月有 ${rules.commandsPerMonth} 道君主指令` : "测试期间君主指令数不限"}；每名武将通常只能行动一次。每城独立保存钱粮，商业决定每月金收入，农业决定每年七月回合开始前的收粮，民心影响两种收入。每月按兵力耗粮、按将领职位付俸禄：缺粮损兵，欠饷降低忠诚。任命太守后，空闲太守会在月底支付费用并自动改善最薄弱的事务。</div>
+    <div class="result-preview"><strong>商人粮市</strong><br>内政菜单、城池面板和城池全览都可进入商人窗口。按当月比例买卖粮食，不收手续费，买卖同价。七月最便宜（1金换10粮），之后逐档涨价，收获前为1金换5粮。交易仍需一名未行动武将${commandLimitEnabled(state) ? "和一道指令" : "，不受指令数限制"}。钱粮不会跨城共享。</div>
     <div class="result-preview"><strong>跨月战役与钱粮</strong><br>出征可携带当前编成最多 ${rules.army.maxSupplyDays ?? 60} 日军粮及金钱，另付出征费用。每日开始按实际存活兵力扣粮，守方连同预备兵共用城中粮储；断粮立即判负。火攻消耗行动力及金 ${rules.battle.strategyGoldCosts.fire}，失败也付费。<br>每个战略月，每场战役推进最多 ${rules.battleDayLimit} 日，期满暂停而非判败。所有战场分别保存、月末依次续战，阵位、钱粮、城墙和状态不会重置。城池交战期间暂停主动城务、运输与迁将；税收、俸禄及七月收获仍结算，守军不会再被月底重复扣粮。</div>
     <div class="result-preview"><strong>野战侦察与伏击</strong><br>基础步兵约 3 点行动力，精兵与骑兵略高。视野比本队标准行动力多一格，同方共享；树林、山地中的敌军必须邻接才能发现，且地形会遮挡后方视线。全部地形始终可见；视野外覆盖半透明迷雾，不显示敌军位置和动向。<br>「埋伏」仅限树林或山地，立即结束本队行动并持续待机；下一支正常进入邻格的敌军会遭受无反击攻击、结束本次行动，多支伏兵依次发动。移动、攻击、火攻或回城会解除自身埋伏，结束行动则可继续潜伏。<br>「警戒移动」以约三倍地形消耗推进，满行动力时至少可走一格，免触发伏击但不会解除伏兵。敌军邻接六格为控制区（ZOC），不能从控制区直接走到另一格控制区；警戒也不能绕过。请先退出控制区，再换角度进入。</div>
     <div class="result-preview"><strong>部队编组与攻城</strong><br>一次最多 ${rules.army.maxUnits} 支部队，每队最多 ${rules.army.maxOfficersPerUnit} 将，只有主将的官职指挥上限决定整队兵额；五维仍各取队内最高值。野战攻军进入守方据点即转攻城；守军攻占进攻方大本营则劫毁粮草，立即击败攻军。<br>攻城每天双方各下一令，全军合算。城墙使用一条总耐久，等级决定长度；推进 33% 与 66% 分别提示突破瓮城、外城，不重置城防。撞门稳定推进，蚁附以较大损失换更快推进，地道按智力冒险；守方可轮换、抢修或出击。城防度越低越容易推进，单纯轮换不能无限死守。</div>
@@ -956,12 +963,13 @@ async function openGameMenu() {
       requireSafeCampaignSwitch();
       if (action === "save") {
         const saved = await saveGameDialog({
+          rules,
           getSlots: () => listManualSaveSlots(scenario.id),
           onSave: (slotId) => { requireSafeCampaignSwitch(); saveManualSlot(slotId, state); }
         });
         if (saved) showToast(`${listManualSaveSlots(scenario.id).find((slot) => slot.id === saved).label} · 保存成功`);
       } else if (action === "load") {
-        const slotId = await chooseLoadSlot(listCampaignSaves(scenario.id), { inGame: true });
+        const slotId = await chooseLoadSlot(listCampaignSaves(scenario.id), { inGame: true, rules });
         if (slotId) {
           requireSafeCampaignSwitch();
           nextAction = () => loadFromMenu(slotId);
@@ -1317,7 +1325,7 @@ async function retreatBattle() {
   const defending = battle.playerSide === "enemy";
   const confirmed = await confirmDialog(defending
     ? { title: "弃城撤退", mark: "退", confirmText: "放弃城池", message: `本城与剩余钱粮将归进攻方，守军撤往另一己方城池。<br>${battle.siege?.encirclement === "encircle" ? "敌军全面包围：突围会承受追击损失。" : "当前仍有撤离通道，撤退不额外损兵。"}<br>若已无其他己方城池，则无法撤退。确定弃城吗？` }
-    : { title: "撤出战场", mark: "退", confirmText: "鸣金收兵", message: "幸存部队和剩余随军钱粮会退回出发城，已消耗的军需、费用与本月指令不会返还。<br>确定撤军吗？" });
+    : { title: "撤出战场", mark: "退", confirmText: "鸣金收兵", message: `幸存部队和剩余随军钱粮会退回出发城，已消耗的军需、费用${commandLimitEnabled(state) ? "与本月指令" : ""}不会返还。<br>确定撤军吗？` });
   if (confirmed) {
     const outcome = battle.retreatArmy();
     if (!outcome.ok) { showToast(outcome.message, "error"); return; }

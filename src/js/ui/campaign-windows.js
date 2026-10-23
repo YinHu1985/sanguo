@@ -9,6 +9,7 @@ import { createDataTable, escapeHtml as esc, number, openDialog, showToast } fro
 import { cityEconomyMarkup } from "./economy-windows.js";
 import { ambushPreparationMarkup } from "./stratagem-windows.js";
 import { dailyFoodCost } from "../game/economy.js";
+import { commandLimitEnabled } from "../game/commands.js";
 
 export function cityTheme(city, manifest) {
   return manifest.themes[manifest.regionThemes[city.region] ?? "central"];
@@ -141,7 +142,7 @@ export function createCampaignUI({ getState, scenario, rules, themes, onStart, o
   async function showSearch(cityId) {
     const city = getCity(state(), cityId);
     const body = document.createElement("div");
-    body.innerHTML = `<p class="modal-description">派一名武将走访${esc(city.name)}，寻找当地尚未发现的在野人物。智力影响发现机会，寻得后仍需另行登用。</p><div class="field"><label>执行武将</label><select>${officerOptions(city)}</select></div><div class="result-preview">花费金 ${rules.personnel?.searchCost ?? 100} · 消耗一道指令及该武将本月行动。</div>`;
+    body.innerHTML = `<p class="modal-description">派一名武将走访${esc(city.name)}，寻找当地尚未发现的在野人物。智力影响发现机会，寻得后仍需另行登用。</p><div class="field"><label>执行武将</label><select>${officerOptions(city)}</select></div><div class="result-preview">花费金 ${rules.personnel?.searchCost ?? 100} · 消耗${commandLimitEnabled(state()) ? "一道指令及" : ""}该武将本月行动。</div>`;
     await actionWindow(`${city.name} · 寻访人才`, body, "派遣寻访", () => queueTask(state(), { kind: "search", cityId, officerIds: [body.querySelector("select").value], payload: {} }, rules), "search");
   }
 
@@ -183,7 +184,7 @@ export function createCampaignUI({ getState, scenario, rules, themes, onStart, o
     const destinations = playerCities(state()).filter((item) => item.id !== cityId);
     if (!destinations.length) return showToast("尚无其他领地可迁任", "error");
     const body = document.createElement("div");
-    body.innerHTML = `<p class="modal-description">迁任武将本人，不携带城中军队。目的地须由我方城池相连；所选武将本月都将视为已行动，共消耗一道指令和金 ${rules.actions.officerTransfer}。月底俸禄由届时所在城池支付。</p><div class="field"><label>迁任目的地</label><select>${destinations.map((item) => `<option value="${item.id}">${esc(item.name)}</option>`).join("")}</select></div><div class="selection-list">${availableOfficers(state(), city).map((officer) => `<label class="selection-card"><input type="checkbox" value="${officer.id}"><strong>${esc(officer.name)}</strong><small>${esc(officer.rank)} · 政 ${officer.politics} 统 ${officer.leadership}</small></label>`).join("")}</div>`;
+    body.innerHTML = `<p class="modal-description">迁任武将本人，不携带城中军队。目的地须由我方城池相连；所选武将本月都将视为已行动，共消耗${commandLimitEnabled(state()) ? "一道指令和" : ""}金 ${rules.actions.officerTransfer}。月底俸禄由届时所在城池支付。</p><div class="field"><label>迁任目的地</label><select>${destinations.map((item) => `<option value="${item.id}">${esc(item.name)}</option>`).join("")}</select></div><div class="selection-list">${availableOfficers(state(), city).map((officer) => `<label class="selection-card"><input type="checkbox" value="${officer.id}"><strong>${esc(officer.name)}</strong><small>${esc(officer.rank)} · 政 ${officer.politics} 统 ${officer.leadership}</small></label>`).join("")}</div>`;
     await actionWindow(`${city.name} · 武将迁任`, body, "签发任命", () => queueTask(state(), { kind: "officerTransfer", cityId, officerIds: [...body.querySelectorAll("input:checked")].map((input) => input.value), payload: { targetId: body.querySelector("select").value } }, rules), "officerTransfer");
   }
 
@@ -195,7 +196,7 @@ export function createCampaignUI({ getState, scenario, rules, themes, onStart, o
     const relation = getRelation(current, current.playerFactionId, targetFactionId);
     const body = document.createElement("div");
     const cost = action === "alliance" ? rules.diplomacy?.allianceCost ?? 600 : rules.diplomacy?.goodwillCost ?? 300;
-    body.innerHTML = `<p class="modal-description">与${esc(faction.name)}友好度 ${relation.friendliness}。${action === "alliance" ? "友好至少 45 可议盟，成功后六个月内不得互相进攻。" : "赠礼必定改善友好度，提升幅度受使者魅力影响。"}</p><div class="form-grid"><div class="field"><label>使团出发城</label><select data-source>${ownCities.map((city) => `<option value="${city.id}">${esc(city.name)} · 金 ${number(city.gold)}</option>`).join("")}</select></div><div class="field"><label>出使武将</label><select data-envoy></select></div></div><div class="result-preview">礼金 ${cost} · 消耗一道指令及使者本月行动。议盟失败也会消耗礼金。</div>`;
+    body.innerHTML = `<p class="modal-description">与${esc(faction.name)}友好度 ${relation.friendliness}。${action === "alliance" ? "友好至少 45 可议盟，成功后六个月内不得互相进攻。" : "赠礼必定改善友好度，提升幅度受使者魅力影响。"}</p><div class="form-grid"><div class="field"><label>使团出发城</label><select data-source>${ownCities.map((city) => `<option value="${city.id}">${esc(city.name)} · 金 ${number(city.gold)}</option>`).join("")}</select></div><div class="field"><label>出使武将</label><select data-envoy></select></div></div><div class="result-preview">礼金 ${cost} · 消耗${commandLimitEnabled(state()) ? "一道指令及" : ""}使者本月行动。议盟失败也会消耗礼金。</div>`;
     const update = () => { body.querySelector("[data-envoy]").innerHTML = officerOptions(getCity(current, body.querySelector("[data-source]").value)); };
     body.querySelector("[data-source]").addEventListener("change", update); update();
     await actionWindow(`${faction.name} · ${action === "alliance" ? "结盟" : "亲善"}`, body, "派遣使团", () => queueTask(state(), { kind: "diplomacy", cityId: body.querySelector("[data-source]").value, officerIds: [body.querySelector("[data-envoy]").value], payload: { targetFactionId, action } }, rules), "diplomacy");

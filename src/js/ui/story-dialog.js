@@ -1,4 +1,5 @@
 import { animatePanel, enterWindow, isTopWindow, leaveWindow } from "./scene-transitions.js";
+import { commandLimitEnabled } from "../game/commands.js";
 
 /**
  * Reusable narrative window. Content is always plain text; its caller owns
@@ -44,15 +45,18 @@ export function buildTurnOpening(state) {
   const lord = faction && (state.officers ?? []).find((officer) => officer.id === faction.lord
     && officer.factionId === faction.id && (!officer.status || officer.status === "active"));
   const commands = Math.max(0, Math.floor(Number(state.commandsRemaining) || 0));
+  const commandReport = commandLimitEnabled(state)
+    ? `本月尚有 ${commands} 道指令可用。`
+    : "测试期间，本月指令不限。武将仍需轮流受命，每人通常只能行动一次。";
   return {
     speaker: lord ? { name: lord.name, portrait: localStoryPortrait(lord.portrait) } : null,
     caption: `${state.year} 年 ${state.month} 月 · ${faction?.name ?? "本方势力"}`,
     text: lord ? [
       "诸位，本月轮到我军行动。",
-      `尚有 ${commands} 道指令可用。请查看军政任务，安排本月事务。`
+      `${commandReport}请查看军政任务，安排本月事务。`
     ] : [
       `${faction?.name ?? "本方势力"}的行动回合开始了。`,
-      `本月尚有 ${commands} 道指令可用。请查看军政任务，安排本月事务。`
+      `${commandReport}请查看军政任务，安排本月事务。`
     ]
   };
 }

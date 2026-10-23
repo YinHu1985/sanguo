@@ -167,7 +167,7 @@ test("army departure rechecks resources and commander availability after validat
     (state) => { state.commandsRemaining = 0; },
     (state) => { state.officers.find((officer) => officer.id === "liu-bei").acted = true; }
   ]) {
-    const state = createInitialState(scenario, rules);
+    const state = createInitialState(scenario, { ...rules, commandLimitEnabled: true });
     const city = state.cities.find((entry) => entry.id === "xiaopei");
     const army = validateArmy(state, city.id, "puyang", [{ officerId: "liu-bei", troops: 2000 }], rules, { food: 720, gold: 200 });
     alter(state, city);

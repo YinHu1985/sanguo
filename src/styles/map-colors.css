@@ -1,0 +1,19 @@
+/* A presentation-only SVG overlay shares the map camera with routes and pins. */
+.territory-layer { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; z-index: 1; }
+.territory-layer.is-hidden { display: none; }
+.territory-fills { opacity: var(--territory-opacity, .38); }
+.territory-cell { stroke: none; transition: fill .25s ease; }
+.territory-boundaries { stroke: #55492f; stroke-width: 1.15; stroke-linecap: round; stroke-linejoin: round; opacity: .66; }
+.map-world > .route-layer { z-index: 2; }
+.map-color-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 12px; max-height: 50px; overflow: auto; margin-top: 8px; padding-top: 8px; border-top: 1px solid #ad97634d; color: #4a4d3f; font-size: 11px; line-height: 1.4; }
+.map-color-legend[hidden] { display: none; }
+.map-legend-chip { display: inline-flex; gap: 5px; align-items: center; }
+.map-legend-chip i, .map-legend-entry > i { display: inline-block; flex: 0 0 auto; width: 12px; height: 12px; background: var(--map-color); border: 1px solid #51472a88; box-shadow: inset 0 0 0 1px #fff3c044; }
+.map-legend-reference { width: 100%; font-size: 10px; color: #7a725e; }
+.map-color-note { margin: 7px 0 0; font-size: 10px; line-height: 1.5; color: #716b59; }
+.map-full-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 20px; }
+.map-legend-entry { display: flex; gap: 8px; align-items: center; padding: 9px 8px; border-bottom: 1px solid #a4926b55; }
+.map-legend-entry strong { font-size: 13px; font-weight: 500; }
+.map-legend-entry span { margin-left: auto; font-size: 11px; color: #736b59; white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .territory-cell { transition: none; } }
+@media (max-width: 480px) { .map-full-legend { grid-template-columns: 1fr; } }

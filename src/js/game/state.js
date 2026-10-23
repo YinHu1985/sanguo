@@ -45,6 +45,7 @@ export function createInitialState(scenario, rules) {
     playerFactionId: scenario.playerFactionId,
     commandsMax: rules.commandsPerMonth,
     commandsRemaining: rules.commandsPerMonth,
+    commandLimitEnabled: rules.commandLimitEnabled !== false,
     selectedCityId: scenario.cities.find((city) => city.factionId === scenario.playerFactionId)?.id,
     factions: structuredClone(scenario.factions).map((faction) => normalizeFactionResearch(faction, rules)),
     cities: scenario.cities.map((city) => normalizeCityEquipment({ ...structuredClone(city), ...normalizeCityDefense(city) }, rules)),
@@ -115,6 +116,8 @@ export function migrateState(saved, scenario, rules) {
   const state = {
     ...initial,
     ...structuredClone(saved),
+    // A gameplay toggle belongs to current rules, not an old save's setting.
+    commandLimitEnabled: rules.commandLimitEnabled !== false,
     atlasVersion: scenario.atlasVersion,
     mapProjection: structuredClone(scenario.mapProjection),
     cities: mergeEntities(initial.cities, saved.cities, cityMapMetadata),
