@@ -107,11 +107,22 @@ function executeOrder(state, order, rules, rng, effectiveTurn = currentTurn(stat
     case "march": {
       // An already funded pre-campaign order keeps its original troop/cargo
       // limits. Ownership, executors, equipment and balances are still checked.
-      const army = validateArmy(state, cityId, payload.targetId, payload.divisions, rules, payload.supplies,
+      // Reversing an idea restricts new formations, not troops already funded
+      // and equipped by an accepted order. Never restore these unlocks globally.
+      const validationState = order.id && order.reservation?.status === "reserved" && Array.isArray(order.formationTechnologies)
+        ? { ...state, factions: state.factions.map((faction) => faction.id === order.factionId
+          ? { ...faction, unlockedTechnologies: order.formationTechnologies } : faction) } : state;
+      const army = validateArmy(validationState, cityId, payload.targetId, payload.divisions, rules, payload.supplies,
         { legacyOrder: Boolean(order.id && order.armyOrderVersion !== 2) });
       if (!army.ok) return army;
-      const departure = commitArmyDeparture(state, army);
+      const departure = commitArmyDeparture(validationState, army);
       if (!departure.ok) return departure;
+      // City/officer ledgers are shared by the validation view; copy only the
+      // top-level fields written by departure, never its historical unlocks.
+      if (validationState !== state) {
+        state.commandsRemaining = validationState.commandsRemaining;
+        state.eventLog = validationState.eventLog;
+      }
       return { ...departure, battle: { sourceCityId: cityId, targetCityId: payload.targetId, divisions: structuredClone(army.divisions),
         attackerFactionId: getCity(state, cityId).factionId, defenderFactionId: getCity(state, payload.targetId).factionId,
         supplies: { ...army.supplies }, equipment: { ...army.equipment }, training: getCity(state, cityId).training, morale: getCity(state, cityId).morale,
@@ -248,6 +259,9 @@ export function queueTask(state, input, rules) {
   try { preview = executeOrder(trial, order, rules, () => order.kind === "stratagem" ? 1 : 0.5); }
   catch { return failure("任务参数无效"); }
   if (!preview.ok) return preview;
+  if (order.kind === "march") {
+    order.formationTechnologies = [...(state.factions.find((faction) => faction.id === state.playerFactionId)?.unlockedTechnologies ?? [])];
+  }
   const after = getCity(trial, order.cityId);
   const reservation = Object.fromEntries(RESOURCE_KEYS.map((key) => [key, Math.max(0, resourceValue(source, key) - resourceValue(after, key))]));
   if (RESOURCE_KEYS.some((key) => !isAmount(reservation[key]))) return failure("任务资源需求无效");

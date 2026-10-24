@@ -17,21 +17,22 @@ test("equipment display exposes three independent warehouse stores", () => {
   assert.match(equipmentStoresMarkup({}), /data-equipment="horses">0</);
 });
 
-test("policy lists all six researchable troops, but insufficient points disable purchase", () => {
+test("policy lists all ideas and six advanced troop unlocks, but insufficient reform disables purchase", () => {
   const html = technologyCardsMarkup(state(), rules);
-  assert.equal((html.match(/data-unlock-technology=/g) ?? []).length, 6);
-  assert.equal((html.match(/ disabled/g) ?? []).length, 6);
+  assert.equal((html.match(/data-unlock-technology=/g) ?? []).length, 27);
+  assert.equal((html.match(/ disabled/g) ?? []).length, 27);
   for (const name of ["突骑兵", "重骑兵", "近卫队", "龙骑兵", "象兵", "藤甲兵"]) assert.ok(html.includes(name), name);
   assert.equal(POLICY_SECTIONS[0].id, "technology");
 });
 
 test("policy unlock states, prices and equipment requirements follow shared rules", () => {
   const html = technologyCardsMarkup(state(2000, ["heavyCavalry"]), rules);
-  assert.equal((html.match(/ disabled/g) ?? []).length, 1);
+  assert.equal((html.match(/ disabled/g) ?? []).length, 17, "nine root ideas and the owned node's rollback are enabled");
   assert.match(html, /is-unlocked[^]*data-technology="heavyCavalry"/);
+  assert.match(html, /data-rollback-technology="heavyCavalry"/);
   assert.match(html, /良马 ×1、劲弩 ×1、甲胄 ×1/);
   const blocked = technologyCardsMarkup(state(2000), rules, false);
-  assert.equal((blocked.match(/ disabled/g) ?? []).length, 6);
+  assert.equal((blocked.match(/ disabled/g) ?? []).length, 27);
 });
 
 test("policy escapes external configuration copy", () => {

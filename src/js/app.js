@@ -37,6 +37,7 @@ import { cityTheme, createCampaignUI } from "./ui/campaign-windows.js";
 import { dailyFoodCost, grainExchangeRate, monthlyFoodCost, previewCityEconomy } from "./game/economy.js";
 import { cityEconomyMarkup, createEconomyUI } from "./ui/economy-windows.js";
 import { createPolicyUI } from "./ui/policy-windows.js";
+import { heavenIndicatorMarkup } from "./ui/heaven-view.js";
 import { createStratagemUI } from "./ui/stratagem-windows.js";
 import { createWarUI } from "./ui/war-windows.js";
 import { enableWarCampaigns, activeBattleCampaigns, ensureTaskBattle, ensureInvasionBattle,
@@ -245,6 +246,9 @@ function bindStaticEvents() {
   document.querySelector("#policies-button").addEventListener("click", () => {
     if (!battle && state.started) policyUI.showPolicies();
   });
+  document.querySelector("#heaven-button").addEventListener("click", () => {
+    if (state.started) policyUI.showHeavenCycle();
+  });
   document.querySelector("#game-menu-button").addEventListener("click", openGameMenu);
   document.querySelector("#audio-button").addEventListener("click", () => gameAudio.openSettings());
   document.querySelector("#help-button").addEventListener("click", showHelp);
@@ -306,6 +310,8 @@ function renderStrategy() {
 function renderTurnRibbon() {
   const status = getCampaignStatus(state);
   document.querySelector("#research-points-label").textContent = number(getFaction(state, state.playerFactionId).researchPoints);
+  document.querySelector("#heaven-button").innerHTML = heavenIndicatorMarkup(getFaction(state, state.playerFactionId), rules);
+  document.querySelector("#heaven-button").disabled = !state.started;
   document.querySelector("#policies-button").disabled = !state.started || status.status !== "active";
   document.querySelector("#player-faction-label").textContent = `${getFaction(state, state.playerFactionId).name} · ${status.ownedCities} 城`;
   const endTurn = document.querySelector("#end-turn-button");
@@ -922,7 +928,7 @@ async function showHelp() {
   const content = `
     <p class="modal-description">建安元年末，选择任一势力经营领土、延揽人才、结交盟友，最终统一天下。天下 ${state.cities.length} 座城池均可争夺。</p>
     <div class="result-preview"><strong>任务与运输</strong><br>城市命令在过月时完成。签发时占用${commandLimitEnabled(state) ? "指令、" : ""}执行武将及所需兵员钱粮，成果尚不生效；顶部「任务簿」追踪执行中及本回合刚完成的任务。先结算到期任务，再处理月底收支及群雄行动。运输允许混合兵员、钱粮、良马、劲弩与甲胄，也可只运装备；沿己方或有效盟友城池组成的路线，一个回合送达任意联通城池，敌方与中立城池阻断路线。送往盟友的物资归盟友使用，执行武将不随运输迁任。</div>
-    <div class="result-preview"><strong>军备与科技</strong><br>各城独立储存良马、劲弩、甲胄，内政中的挑选良马、制作弓弩、打造甲胄花费金钱并派将执行。每件装备供应一名对应士兵；混编时合计全军需求，签发出征令即预扣。装备随战损减少，幸存装备随退军或入城归库。<br>左上「全局政策」管理本势力研究点，每月 +${rules.research?.monthlyGain ?? 100}，没有积累上限。科技立即扣点并永久解锁，不耗城市指令或武将行动；初始开放步兵、弓兵、重步兵、劲弩兵、骑兵，其余六种通过科技解锁。</div>
+    <div class="result-preview"><strong>军备与改革</strong><br>各城独立储存良马、劲弩、甲胄，内政中的挑选良马、制作弓弩、打造甲胄花费金钱并派将执行。每件装备供应一名对应士兵；混编时合计全军需求，签发出征令即预扣。装备随战损减少，幸存装备随退军或入城归库。<br>左上「全局政策」使用改革力：每月底基础获取 ${rules.research?.monthlyGain ?? 100}，无积累上限。内政分王／霸、军事分正／奇；偏重一方会提高对立方向的研习费用。理念组成小树，完成整组可获额外月收入。研习即时扣改革力，不耗城市指令或武将行动；回退不退款，并连带取消依赖理念。六种高级兵种由对应理念解锁，回退不改动已签发出征令或战场部队。<br>天意循环：得城、研习算胜，失城、回退算败；胜势降低改革力收入，败势提高收入，按月渐强，反向事件立即替换旧效果。具体倍率和预计收入可在政策窗口查看；标注“效果待定”的理念尚无额外经济或战斗效果。</div>
     <div class="result-preview"><strong>混编能力与射击</strong><br>每队可自由填写不同兵种人数，合计不超过主将的官职兵额，副将不增加兵额。将领能力、训练、士气与兵种共同生成统一的肉搏火力／防护、远程火力／防护、移动力和视野面板，战损及增援后重算。火力按对应士兵人数累加；移动和视野取决于编成比例，而不会随总人数减半。<br>攻击为邻接肉搏；编入一名射手也可射击，但仅贡献该射手的微小火力。射击无反击，受视野和射程限制。火矢消耗 ${rules.battle.ranged?.fireArrowActionPoints ?? 3} 行动力及金 ${rules.battle.ranged?.fireArrowGoldCost ?? 30}，射击后有 ${Math.round((rules.battle.ranged?.fireArrowChance ?? .3) * 100)}% 概率追加一次引燃效果。</div>
     <div class="result-preview"><strong>兵种伤亡倾向</strong><br>编成比例不会锁定。每次伤亡按「当前人数 × 该攻击类型的暴露系数」分摊，随后按剩余兵种重算战力与装备。暴露系数只改变谁承担伤亡，不额外放大总伤害。<br>近战（包括反击、伏击、攻城与拦截）更容易损失步兵，射击的偏向较弱，火攻默认按人数分摊。火矢先结算箭伤，再单独结算引燃。随着步兵减少，其分担能力自然下降；不额外设置前后排或掩护不足惩罚。攻城按全军兵种统一分摊，城内预备兵按步兵计入。各兵种系数可在编成表中查看。</div>
     <div class="result-preview"><strong>战略层</strong><br>${commandLimitEnabled(state) ? `每月有 ${rules.commandsPerMonth} 道君主指令` : "测试期间君主指令数不限"}；每名武将通常只能行动一次。每城独立保存钱粮，商业决定每月金收入，农业决定每年七月回合开始前的收粮，民心影响两种收入。每月按兵力耗粮、按将领职位付俸禄：缺粮损兵，欠饷降低忠诚。任命太守后，空闲太守会在月底支付费用并自动改善最薄弱的事务。</div>

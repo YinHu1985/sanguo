@@ -309,7 +309,9 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .modal.wide { width: min(900px, 96vw); }
 .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 17px 20px; color: var(--paper-light); background: var(--pine); border-bottom: 3px solid var(--gold); }
 .modal-header h2 { margin: 0; font: 700 20px var(--serif); letter-spacing: .05em; }
-.modal-close { width: 30px; height: 30px; color: #ded5c2; background: transparent; border: 1px solid rgba(255,255,255,.25); }
+.modal-close { display: grid; place-items: center; flex: 0 0 auto; width: 30px; height: 30px; padding: 0; line-height: 1; appearance: none; color: #ded5c2; background: transparent; border: 1px solid rgba(255,255,255,.25); }
+.modal-close[hidden] { display: none; }
+.modal-close > svg { display: block; width: 16px; height: 16px; pointer-events: none; }
 .modal-body { padding: 18px 20px; }
 .modal-description { margin: 0 0 15px; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .modal-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 13px 20px; border-top: 1px solid var(--line); background: #eadfc8; }

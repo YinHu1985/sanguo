@@ -169,28 +169,30 @@ test("research accrues monthly to every surviving faction, never to neutral or e
   const state = fixture();
   const report = advanceMonth(state, rules);
   assert.deepEqual(report.research.map((entry) => entry.factionId), ["a", "b"]);
-  assert.deepEqual(state.factions.map((faction) => faction.researchPoints), [100, 100, 0, 0]);
+  assert.deepEqual(state.factions.map((faction) => faction.researchPoints), [90, 90, 0, 0]);
   state.factions[0].researchPoints = 1000000;
   advanceResearch(state, rules);
-  assert.equal(state.factions[0].researchPoints, 1000100, "no gameplay accumulation limit");
+  assert.equal(state.factions[0].researchPoints, 1000080, "no gameplay accumulation limit; opening victory momentum progresses monthly");
 });
 
 test("all six advanced troop technologies start locked and can be unlocked without a city action", () => {
   const state = fixture();
-  assert.deepEqual(Object.keys(rules.technologies).sort(), ["raiderCavalry", "heavyCavalry", "guard", "dragoon", "elephant", "rattan"].sort());
+  assert.deepEqual(Object.entries(rules.technologies).filter(([, technology]) => technology.unitType).map(([id]) => id).sort(),
+    ["raiderCavalry", "heavyCavalry", "guard", "dragoon", "elephant", "rattan"].sort());
   for (const id of Object.keys(rules.technologies)) assert.equal(technologyStatus(state, "a", id, rules).unlocked, false);
   state.factions[0].researchPoints = 10000;
   const officersBefore = structuredClone(state.officers);
   const citiesBefore = structuredClone(state.cities);
   const commandsBefore = state.commandsRemaining;
   let totalCost = 0;
-  for (const [id, config] of Object.entries(rules.technologies)) {
-    assert.equal(technologyStatus(state, "a", id, rules).ok, true);
+  for (const id of Object.keys(rules.technologies)) {
+    const preview = technologyStatus(state, "a", id, rules);
+    assert.equal(preview.ok, true);
     const result = unlockTechnology(state, "a", id, rules);
     assert.equal(result.ok, true);
-    assert.equal(result.cost, config.cost);
+    assert.equal(result.cost, preview.cost);
     assert.equal(technologyStatus(state, "a", id, rules).unlocked, true);
-    totalCost += config.cost;
+    totalCost += preview.cost;
   }
   assert.equal(state.factions[0].researchPoints, 10000 - totalCost);
   assert.equal(state.commandsRemaining, commandsBefore);

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>52三国志 · 改革与天意验收</title>
+<link rel="stylesheet" href="../dist/styles/main.css">
+<link rel="stylesheet" href="../dist/styles/classic-theme.css">
+<link rel="stylesheet" href="../dist/styles/typography.css">
+<link rel="stylesheet" href="../dist/styles/military.css">
+<link rel="stylesheet" href="../dist/styles/policies.css">
+<link rel="stylesheet" href="../dist/styles/transitions.css">
+<style>
+body{margin:0;padding:24px;background:#253c39 url('../dist/assets/map/strategic-map.svg') center/cover fixed;color:#f5e7c4;overflow:auto;min-height:100vh}
+.qa-controls{position:relative;max-width:950px;margin:0 auto;padding:18px 22px;background:#1c3334eb;border:3px double #bd9d60;box-shadow:0 6px 24px #0008}
+.qa-controls h1{font:26px var(--display);margin:0 0 12px}.qa-controls p{font-size:13px;line-height:1.8}.qa-buttons{display:flex;gap:10px;flex-wrap:wrap}
+#qa-result{white-space:pre-wrap;font:13px/1.8 var(--sans);padding-top:12px}
+</style>
+<section class="qa-controls"><h1>改革与天意 · 独立验收</h1>
+<p>本页使用真实政策窗口和纯规则引擎。初始 5,000 改革力，不读写任何游戏存档；关闭页面即丢弃验收进度。</p>
+<div class="qa-buttons"><button class="btn btn-primary" id="open-policy">打开全局政策</button><button class="btn" id="month">结算一个月</button><button class="btn" id="win">记录得城之胜</button><button class="btn" id="loss">记录失城之败</button><button class="btn" id="roundtrip">序列化并恢复</button><button class="btn" id="reset">重置测试势力</button></div>
+<div id="qa-result" aria-live="polite"></div></section>
+<div id="modal-root"></div><div id="toast-root"></div>
+<script type="module">
+import { createPolicyUI } from '../dist/js/ui/policy-windows.js';
+import { advanceResearch, getPolicyOverview, normalizeFactionResearch } from '../dist/js/game/technology.js';
+import { heavenCycleStatus, normalizeHeavenCycle, transferCityOwnership } from '../dist/js/game/heaven-cycle.js';
+if (!['localhost','127.0.0.1'].includes(location.hostname) || !['4174','4175','4176'].includes(location.port)) throw new Error('仅供独立本地验收端口');
+const rules = await (await fetch('../dist/data/rules.json')).json();
+let state;
+function setup() {
+  state = { playerFactionId:'cao-cao',year:196,month:11,elapsedMonths:0,tasks:[],eventLog:[],
+    factions:[{id:'cao-cao',name:'曹操军',researchPoints:5000,unlockedTechnologies:[]},{id:'rival',name:'袁绍军'}],
+    cities:[{id:'home',name:'许昌',factionId:'cao-cao'},{id:'rival-home',name:'南皮',factionId:'rival'}] };
+  state.factions.forEach(faction => { normalizeFactionResearch(faction,rules); normalizeHeavenCycle(faction); });
+  render();
+}
+function render() {
+  const overview=getPolicyOverview(state,state.playerFactionId,rules), fate=heavenCycleStatus(state.factions[0],rules);
+  document.querySelector('#qa-result').textContent=`${state.year} 年 ${state.month} 月 · 改革力 ${overview.points} · 下月预计 +${overview.income.gain}\n${fate.label} · 强度 ${fate.strength}/${fate.maxStrength} · 收入 ×${fate.multiplier}\n${overview.groups.filter(group=>group.complete).map(group=>group.name).join('、') || '尚无完整理念组'}\n${state.eventLog.slice(0,4).map(event=>event.text).join('\n')}`;
+}
+const policy=createPolicyUI({getState:()=>state,rules,onChange:render,canEdit:()=>true});
+document.querySelector('#open-policy').onclick=()=>policy.showPolicies();
+document.querySelector('#month').onclick=()=>{state.elapsedMonths++; if(++state.month>12){state.month=1;state.year++;} advanceResearch(state,rules);render();};
+document.querySelector('#win').onclick=()=>{
+  const city={id:`qa-win-${state.cities.length}`,name:'验收城',factionId:'rival'};
+  state.cities.push(city);transferCityOwnership(state,city,state.playerFactionId);render();
+};
+document.querySelector('#loss').onclick=()=>{
+  const city={id:`qa-loss-${state.cities.length}`,name:'验收城',factionId:state.playerFactionId};
+  state.cities.push(city);transferCityOwnership(state,city,'rival');render();
+};
+document.querySelector('#roundtrip').onclick=()=>{state=JSON.parse(JSON.stringify(state));state.factions.forEach(normalizeHeavenCycle);render();};
+document.querySelector('#reset').onclick=setup;
+setup();
+</script>
+</html>

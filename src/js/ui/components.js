@@ -28,7 +28,7 @@ export function openDialog({ title, content, confirmText = "确定", cancelText 
     <section class="modal ${wide ? "wide" : ""}" role="dialog" aria-modal="true" aria-labelledby="${titleId}">
       <header class="modal-header">
         <h2 id="${titleId}">${escapeHtml(title)}</h2>
-        <button class="modal-close" type="button" aria-label="关闭" ${dismissible ? "" : "hidden"}>×</button>
+        <button class="modal-close" type="button" aria-label="关闭" ${dismissible ? "" : "hidden"}><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M3 3L13 13M13 3L3 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
       </header>
       <div class="modal-body"></div>
       <footer class="modal-footer">

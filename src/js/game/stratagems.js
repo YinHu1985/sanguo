@@ -4,6 +4,7 @@ import { NEUTRAL_FACTION_ID } from "./atlas.js";
 import { EQUIPMENT_KEYS } from "./equipment.js";
 import { activeBattleCampaigns, cityBesieged, officerAtWar } from "./war-state.js";
 import { canIssueCommand, consumeCommand } from "./commands.js";
+import { transferCityOwnership } from "./heaven-cycle.js";
 
 export const STRATAGEM_ACTIONS = ["rumor", "discord", "surrender", "prepareAmbush"];
 const DEFAULTS = {
@@ -127,7 +128,10 @@ function absorbFaction(state, previousFactionId, nextFactionId) {
   if (!cities.length || officers.some((officer) => !cityIds.has(officer.locationCityId)
     || !cityById(state, officer.locationCityId).officerIds.includes(officer.id))) return { ok: false, message: "对方在职将领驻地记录无效，劝降未执行" };
   const formerLord = state.factions.find((faction) => faction.id === previousFactionId)?.lord;
-  for (const city of cities) { city.factionId = nextFactionId; delete city.ambushPreparation; }
+  for (const city of cities) {
+    transferCityOwnership(state, city, nextFactionId);
+    delete city.ambushPreparation;
+  }
   for (const officer of officers) {
     officer.factionId = nextFactionId;
     officer.loyalty = 75;

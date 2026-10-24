@@ -8,6 +8,7 @@ import { taskOrderNote } from "../src/js/ui/task-windows.js";
 import { stratagemPreviewMarkup } from "../src/js/ui/stratagem-windows.js";
 import { saveCardMarkup } from "../src/js/ui/save-windows.js";
 import { createEconomyUI } from "../src/js/ui/economy-windows.js";
+import { heavenIndicatorMarkup } from "../src/js/ui/heaven-view.js";
 
 const app = await readFile(new URL("../src/js/app.js", import.meta.url), "utf8");
 const unlimited = { commandLimitEnabled: false };
@@ -60,7 +61,7 @@ test("actual HUD renderer hides spent tokens only while the limit is disabled", 
     getCampaignStatus: () => ({ status: "active", ownedCities: 2 }),
     getFaction: () => ({ name: "刘备军", researchPoints: 100 }), number: String,
     advancingMonth: false, battle: null, seasons: [], monthNames: [], eraLabel: () => "建安元年",
-    grainExchangeRate: () => 8, rules: { economy: { harvestMonth: 7 } }, commandLimitEnabled };
+    grainExchangeRate: () => 8, rules: { economy: { harvestMonth: 7 } }, commandLimitEnabled, heavenIndicatorMarkup };
   runInNewContext(`${source}; renderTurnRibbon();`, context);
   assert.equal(elements.get("#command-label").textContent, "不限");
   assert.equal(elements.get("#command-pips").hidden, true);

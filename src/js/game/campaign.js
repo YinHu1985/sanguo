@@ -9,6 +9,7 @@ import { normalizeCityDefense, applyWallDevelopment } from "./city-defense.js";
 import { addEquipment, applyFormationLosses, autoComposition, compositionEquipment, EQUIPMENT_KEYS, equipmentAvailable, formationComposition, primaryTroopType, resizeComposition, sumEquipment } from "./troops.js";
 import { calculateCombatStats } from "./combat-stats.js";
 import { canIssueCommand, consumeCommand } from "./commands.js";
+import { transferCityOwnership } from "./heaven-cycle.js";
 
 const clamp = (value, min = 0, max = 100) => Math.max(min, Math.min(max, value));
 const cityById = (state, id) => state.cities.find((city) => city.id === id);
@@ -113,7 +114,7 @@ export function resolveOccupation(state, { sourceId, targetId, officerIds, troop
   const escapedOfficerIds = [];
   const capturedOfficerIds = [];
   const liberatedOfficerIds = [];
-  target.factionId = source.factionId;
+  transferCityOwnership(state, target, source.factionId);
   delete target.ambushPreparation;
   target.officerIds = [];
   target.governorId = null;

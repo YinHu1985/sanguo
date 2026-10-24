@@ -34,15 +34,56 @@
   },
   "research": {
     "monthlyGain": 100,
-    "initialPoints": 0
+    "initialPoints": 0,
+    "oppositionCostPerNode": 0.15,
+    "maximumCostMultiplier": 3,
+    "heavenCycle": { "maxStrength": 6, "monthlyStrengthGain": 1, "victoryPenaltyPerStrength": 0.1, "defeatBonusPerStrength": 0.1 }
+  },
+  "policyDirections": {
+    "wang": { "name": "王", "axis": "domestic", "opposite": "ba", "description": "以养民致富为本，侧重收入与地方发展。" },
+    "ba": { "name": "霸", "axis": "domestic", "opposite": "wang", "description": "以军政权谋为先，侧重军事动员与策略。" },
+    "zheng": { "name": "正", "axis": "military", "opposite": "qi", "description": "整军经武，侧重步骑、城防与补给。" },
+    "qi": { "name": "奇", "axis": "military", "opposite": "zheng", "description": "出奇制胜，侧重弓弩、攻城、异兵与计谋。" }
+  },
+  "ideaGroups": {
+    "wangProsperity": { "name": "富民通商", "direction": "wang", "description": "兴农桑、通商旅，积蓄长治之本。", "completionBonus": { "reformFlat": 10 } },
+    "wangGovernance": { "name": "仁政吏治", "direction": "wang", "description": "修明政教，以德养民，以贤治郡。", "completionBonus": { "reformFlat": 10 } },
+    "baMobilization": { "name": "军政一体", "direction": "ba", "description": "编户聚兵，以军法贯通地方政务。", "completionBonus": { "reformFlat": 10 } },
+    "baStatecraft": { "name": "威权纵横", "direction": "ba", "description": "以威立信，运用权谋掌握先机。", "completionBonus": { "reformFlat": 10 } },
+    "zhengFormation": { "name": "整军经武", "direction": "zheng", "description": "严整军纪，建立正面作战的精锐军制。", "completionBonus": { "reformFlat": 10 } },
+    "zhengLogistics": { "name": "城垣粮道", "direction": "zheng", "description": "修城固守，保障粮道与军需。", "completionBonus": { "reformFlat": 10 } },
+    "qiArchery": { "name": "弩机骑射", "direction": "qi", "description": "研习远射技艺，发展机动火力。", "completionBonus": { "reformFlat": 10 } },
+    "qiExotic": { "name": "异兵奇制", "direction": "qi", "description": "借地域之长，建立独特兵种。", "completionBonus": { "reformFlat": 10 } },
+    "qiStratagem": { "name": "奇谋攻坚", "direction": "qi", "description": "以器械破坚，以计谋制敌。", "completionBonus": { "reformFlat": 10 } }
   },
   "technologies": {
-    "raiderCavalry": { "name": "骑射战法", "unitType": "raiderCavalry", "cost": 200, "description": "解锁突骑兵：消耗良马和劲弩，兼具机动与射击能力。" },
-    "heavyCavalry": { "name": "具装铁骑", "unitType": "heavyCavalry", "cost": 300, "description": "解锁重骑兵：消耗良马和甲胄，强化正面冲击与防护。" },
-    "guard": { "name": "近卫军制", "unitType": "guard", "cost": 300, "description": "解锁近卫队：消耗劲弩和甲胄，兼具坚固防护与射击能力。" },
-    "dragoon": { "name": "龙骑军制", "unitType": "dragoon", "cost": 500, "description": "解锁龙骑兵：消耗良马、劲弩和甲胄，编成重装射击骑兵。" },
-    "elephant": { "name": "驭象之术", "unitType": "elephant", "cost": 400, "description": "解锁象兵编组；已预留特殊将领与地域解锁接口。" },
-    "rattan": { "name": "藤甲工艺", "unitType": "rattan", "cost": 300, "description": "解锁藤甲兵编组；已预留特殊将领与地域解锁接口。" }
+    "agriculturalRelief": { "name": "劝课农桑", "direction": "wang", "group": "wangProsperity", "prerequisites": [], "cost": 80, "placeholder": true, "description": "理念占位：未来侧重农业发展，具体效果待定。" },
+    "openMarkets": { "name": "通商惠工", "direction": "wang", "group": "wangProsperity", "prerequisites": ["agriculturalRelief"], "cost": 120, "placeholder": true, "description": "理念占位：未来侧重商业收入，具体效果待定。" },
+    "publicGranaries": { "name": "常平义仓", "direction": "wang", "group": "wangProsperity", "prerequisites": ["agriculturalRelief"], "cost": 160, "placeholder": true, "description": "理念占位：未来侧重民生与粮储，具体效果待定。" },
+    "virtuousRule": { "name": "德化乡里", "direction": "wang", "group": "wangGovernance", "prerequisites": [], "cost": 80, "placeholder": true, "description": "理念占位：未来侧重民心与治安，具体效果待定。" },
+    "meritOfficials": { "name": "举贤任能", "direction": "wang", "group": "wangGovernance", "prerequisites": ["virtuousRule"], "cost": 120, "placeholder": true, "description": "理念占位：未来侧重人才与吏治，具体效果待定。" },
+    "countySchools": { "name": "郡县教化", "direction": "wang", "group": "wangGovernance", "prerequisites": ["meritOfficials"], "cost": 160, "placeholder": true, "description": "理念占位：未来侧重城市发展，具体效果待定。" },
+    "militaryRegisters": { "name": "编户军籍", "direction": "ba", "group": "baMobilization", "prerequisites": [], "cost": 80, "placeholder": true, "description": "理念占位：未来侧重军事动员，具体效果待定。" },
+    "martialLaw": { "name": "军法治郡", "direction": "ba", "group": "baMobilization", "prerequisites": ["militaryRegisters"], "cost": 120, "placeholder": true, "description": "理念占位：未来侧重军政效率，具体效果待定。" },
+    "warEconomy": { "name": "战时征调", "direction": "ba", "group": "baMobilization", "prerequisites": ["militaryRegisters"], "cost": 160, "placeholder": true, "description": "理念占位：未来侧重征兵与战备，具体效果待定。" },
+    "centralAuthority": { "name": "威令一统", "direction": "ba", "group": "baStatecraft", "prerequisites": [], "cost": 80, "placeholder": true, "description": "理念占位：未来侧重势力号令，具体效果待定。" },
+    "secretAgents": { "name": "耳目之网", "direction": "ba", "group": "baStatecraft", "prerequisites": ["centralAuthority"], "cost": 120, "placeholder": true, "description": "理念占位：未来侧重谍报与离间，具体效果待定。" },
+    "coerciveDiplomacy": { "name": "纵横威服", "direction": "ba", "group": "baStatecraft", "prerequisites": ["secretAgents"], "cost": 160, "placeholder": true, "description": "理念占位：未来侧重谋略与威慑，具体效果待定。" },
+    "militaryDiscipline": { "name": "严整军纪", "direction": "zheng", "group": "zhengFormation", "prerequisites": [], "cost": 100, "placeholder": true, "description": "理念占位：未来侧重步兵阵战与训练，具体效果待定。" },
+    "heavyCavalry": { "name": "具装铁骑", "unitType": "heavyCavalry", "direction": "zheng", "group": "zhengFormation", "prerequisites": ["militaryDiscipline"], "cost": 300, "description": "解锁重骑兵：消耗良马和甲胄，强化正面冲击与防护。" },
+    "guard": { "name": "近卫军制", "unitType": "guard", "direction": "zheng", "group": "zhengFormation", "prerequisites": ["militaryDiscipline"], "cost": 300, "description": "解锁近卫队：消耗劲弩和甲胄，兼具坚固防护与射击能力。" },
+    "supplyRoutes": { "name": "转运粮道", "direction": "zheng", "group": "zhengLogistics", "prerequisites": [], "cost": 80, "placeholder": true, "description": "理念占位：未来侧重军粮运输，具体效果待定。" },
+    "fortifiedWalls": { "name": "坚城深池", "direction": "zheng", "group": "zhengLogistics", "prerequisites": ["supplyRoutes"], "cost": 120, "placeholder": true, "description": "理念占位：未来侧重城防与筑墙，具体效果待定。" },
+    "militaryFarms": { "name": "军屯积粟", "direction": "zheng", "group": "zhengLogistics", "prerequisites": ["supplyRoutes"], "cost": 160, "placeholder": true, "description": "理念占位：未来侧重持久补给，具体效果待定。" },
+    "crossbowEngineering": { "name": "弩机精研", "direction": "qi", "group": "qiArchery", "prerequisites": [], "cost": 100, "placeholder": true, "description": "理念占位：未来侧重弓弩射击，具体效果待定。" },
+    "raiderCavalry": { "name": "骑射战法", "unitType": "raiderCavalry", "direction": "qi", "group": "qiArchery", "prerequisites": ["crossbowEngineering"], "cost": 200, "description": "解锁突骑兵：消耗良马和劲弩，兼具机动与射击能力。" },
+    "dragoon": { "name": "龙骑军制", "unitType": "dragoon", "direction": "qi", "group": "qiArchery", "prerequisites": ["raiderCavalry"], "cost": 500, "description": "解锁龙骑兵：消耗良马、劲弩和甲胄，编成重装射击骑兵。" },
+    "regionalWarfare": { "name": "因地制兵", "direction": "qi", "group": "qiExotic", "prerequisites": [], "cost": 100, "placeholder": true, "description": "理念占位：未来侧重地形与异兵战法，具体效果待定。" },
+    "elephant": { "name": "驭象之术", "unitType": "elephant", "direction": "qi", "group": "qiExotic", "prerequisites": ["regionalWarfare"], "cost": 400, "description": "解锁象兵编组；已预留特殊将领与地域解锁接口。" },
+    "rattan": { "name": "藤甲工艺", "unitType": "rattan", "direction": "qi", "group": "qiExotic", "prerequisites": ["regionalWarfare"], "cost": 300, "description": "解锁藤甲兵编组；已预留特殊将领与地域解锁接口。" },
+    "siegeEngineering": { "name": "攻具营造", "direction": "qi", "group": "qiStratagem", "prerequisites": [], "cost": 100, "placeholder": true, "description": "理念占位：未来侧重攻城器械，具体效果待定。" },
+    "deceptionDoctrine": { "name": "诡道用兵", "direction": "qi", "group": "qiStratagem", "prerequisites": ["siegeEngineering"], "cost": 150, "placeholder": true, "description": "理念占位：未来侧重疑兵与挑衅，具体效果待定。" },
+    "fireAssault": { "name": "火攻破坚", "direction": "qi", "group": "qiStratagem", "prerequisites": ["siegeEngineering"], "cost": 180, "placeholder": true, "description": "理念占位：未来侧重火计与攻坚谋略，具体效果待定。" }
   },
   "economy": {
     "foodPerThousandPerMonth": 120,

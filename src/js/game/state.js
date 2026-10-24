@@ -4,6 +4,7 @@ import { formationOfficerIds, normalizeFormations } from "./army.js";
 import { normalizeCityDefense } from "./city-defense.js";
 import { normalizeCityEquipment, EQUIPMENT_KEYS } from "./equipment.js";
 import { normalizeFactionResearch } from "./technology.js";
+import { initializeHeavenCycle, normalizeHeavenCycle } from "./heaven-cycle.js";
 import { activeAmbushPreparation } from "./stratagems.js";
 import { restoreWarLocks } from "./war-state.js";
 
@@ -29,6 +30,7 @@ export function createInitialState(scenario, rules) {
     armyVersion: 1,
     equipmentVersion: 1,
     researchVersion: 1,
+    policyVersion: 1,
     tasks: [],
     nextTaskId: 1,
     turnResolution: null,
@@ -47,7 +49,11 @@ export function createInitialState(scenario, rules) {
     commandsRemaining: rules.commandsPerMonth,
     commandLimitEnabled: rules.commandLimitEnabled !== false,
     selectedCityId: scenario.cities.find((city) => city.factionId === scenario.playerFactionId)?.id,
-    factions: structuredClone(scenario.factions).map((faction) => normalizeFactionResearch(faction, rules)),
+    factions: structuredClone(scenario.factions).map((faction) => {
+      normalizeFactionResearch(faction, rules);
+      initializeHeavenCycle(faction);
+      return faction;
+    }),
     cities: scenario.cities.map((city) => normalizeCityEquipment({ ...structuredClone(city), ...normalizeCityDefense(city) }, rules)),
     officers: scenario.officers.map((officer) => ({ status: "active", ...structuredClone(officer), acted: false })),
     eventLog: [
@@ -73,7 +79,8 @@ export function loadState(scenario, rules) {
       const upgradeArmy = saved.armyVersion !== 1;
       const upgradeEquipment = saved.equipmentVersion !== 1;
       const upgradeResearch = saved.researchVersion !== 1;
-      if (cleanupPlaceholders || upgradeEconomy || upgradeTasks || upgradeArmy || upgradeEquipment || upgradeResearch) {
+      const upgradePolicies = saved.policyVersion !== 1;
+      if (cleanupPlaceholders || upgradeEconomy || upgradeTasks || upgradeArmy || upgradeEquipment || upgradeResearch || upgradePolicies) {
         try {
           const backups = [
             ...(cleanupPlaceholders ? ["before-placeholder-cleanup"] : []),
@@ -81,7 +88,8 @@ export function loadState(scenario, rules) {
             ...(upgradeTasks ? ["before-tasks-v1"] : []),
             ...(upgradeArmy ? ["before-army-v1"] : []),
             ...(upgradeEquipment ? ["before-equipment-v1"] : []),
-            ...(upgradeResearch ? ["before-research-v1"] : [])
+            ...(upgradeResearch ? ["before-research-v1"] : []),
+            ...(upgradePolicies ? ["before-policies-v1"] : [])
           ];
           // All needed snapshots must exist before replacing the active slot.
           // A write failure returns the migrated in-memory campaign unchanged.
@@ -129,6 +137,7 @@ export function migrateState(saved, scenario, rules) {
   state.armyVersion = 1;
   state.equipmentVersion = 1;
   state.researchVersion = 1;
+  state.policyVersion = 1;
   for (const city of state.cities) {
     // Entity merging must not give an old campaign the scenario's opening stock.
     const oldCity = saved.cities?.find((entry) => entry.id === city.id);
@@ -137,7 +146,13 @@ export function migrateState(saved, scenario, rules) {
     normalizeCityEquipment(city, rules);
     if (city.ambushPreparation && !activeAmbushPreparation(city, state)) delete city.ambushPreparation;
   }
-  state.factions.forEach((faction) => normalizeFactionResearch(faction, rules));
+  state.factions.forEach((faction) => {
+    normalizeFactionResearch(faction, rules);
+    // Old saves predating heaven cycles inherit the opening momentum. Explicit
+    // saved phases (including neutral) always win over the new-game default.
+    if (faction.heavenCycle === undefined) initializeHeavenCycle(faction);
+    normalizeHeavenCycle(faction);
+  });
   for (const invasion of state.pendingInvasions ?? []) {
     if (!Array.isArray(invasion.divisions)) continue;
     invasion.divisions = normalizeSavedFormations(invasion.divisions, invasion.equipment, !invasion.resolved);
@@ -146,6 +161,11 @@ export function migrateState(saved, scenario, rules) {
   state.taskVersion = 1;
   state.tasks = Array.isArray(state.tasks) ? state.tasks : [];
   for (const task of state.tasks) {
+    // Preserve the legality of funded pre-policy formations when ideas become reversible.
+    if (saved.policyVersion !== 1 && task.kind === "march" && task.status === "running"
+      && task.reservation?.status === "reserved" && !Array.isArray(task.formationTechnologies)) {
+      task.formationTechnologies = [...(state.factions.find((entry) => entry.id === task.factionId)?.unlockedTechnologies ?? [])];
+    }
     const equipmentReserved = EQUIPMENT_KEYS.some((key) => task.reservation?.[key] > 0);
     const active = ["running", "awaiting_battle"].includes(task.status);
     if (task.reservation) for (const key of EQUIPMENT_KEYS) if (task.reservation[key] === undefined) task.reservation[key] = 0;
