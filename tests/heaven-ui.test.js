@@ -100,11 +100,16 @@ test("rehydrated campaign indicators show each saved phase and strength instead 
   }
 });
 
-test("the persistent topbar owns the indicator, refreshes it from player state, and opens read-only details", async () => {
+test("the council owns the indicator, refreshes it from player state, and opens read-only details", async () => {
   const index = await readFile(new URL("../src/index.html", import.meta.url), "utf8");
   const app = await readFile(new URL("../src/js/app.js", import.meta.url), "utf8");
   const topbar = index.match(/<header class="topbar">[^]*?<\/header>/)?.[0] ?? "";
-  assert.match(topbar, /<button[^>]*id="heaven-button"[^>]*aria-label="查看天意循环"[^>]*aria-haspopup="dialog"/);
+  assert.doesNotMatch(topbar, /id="(?:heaven-button|policies-button|personal-home-button|audio-button)"/);
+  assert.match(topbar, /id="personal-journal-button"/);
+  const council = index.slice(index.indexOf('id="strategy-screen"'), index.indexOf('id="battle-screen"'));
+  assert.match(council, /<button[^>]*id="heaven-button"[^>]*aria-label="查看天意循环"[^>]*aria-haspopup="dialog"/);
+  assert.match(council, /id="policies-button"/);
+  assert.doesNotMatch(index, /id="request-expedition-button"/);
   assert.equal((index.match(/id="heaven-button"/g) ?? []).length, 1);
   assert.match(app, /import\s*\{\s*heavenIndicatorMarkup\s*\}\s*from\s*"\.\/ui\/heaven-view\.js"/);
   const ribbon = app.match(/function renderTurnRibbon\(\)\s*\{[^]*?\n\}/)?.[0] ?? "";

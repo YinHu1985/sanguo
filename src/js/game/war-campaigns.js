@@ -6,6 +6,9 @@ import { formationOfficerIds, formationCapacity, armyLimits } from "./army.js";
 import { sumEquipment, addEquipment, EQUIPMENT_KEYS, formationComposition, equipmentAvailable } from "./troops.js";
 import { activeBattleCampaigns, cityBesieged, restoreWarLocks, markWarRations, officerAtWar } from "./war-state.js";
 import { cancelCityTasks } from "./tasks.js";
+import { configureBattleControl, participatesInBattle } from "./capabilities.js";
+import { emitDomainEvent } from "./domain-events.js";
+import { syncPlayerIdentity } from "./character-state.js";
 
 export { activeBattleCampaigns, cityBesieged } from "./war-state.js";
 export const listBattleCampaigns = (state) => state.battles ?? [];
@@ -129,6 +132,7 @@ function registerBattle(state, order, rules, map, { kind, taskId, invasionId, mo
   if (!Number.isSafeInteger(nextId) || nextId < 1 || !Number.isSafeInteger(nextId + 1)) return fail("战役编号超出安全范围");
   const id = `war-${nextId}`; state.nextBattleId = nextId + 1;
   const record = { id, kind, taskId, invasionId, sourceCityId: source.id, targetCityId: target.id,
+    commanders: Object.fromEntries(["ally", "enemy"].map(side => [side, battle.units.find(unit => unit.side === side)?.officerIds?.[0] ?? null])),
     attackerFactionId, defenderFactionId: target.factionId,
     officerIds: [...new Set([...attackerIds, ...targetView.officerIds])], attackerOfficerIds: [...attackerIds],
     status: "active", revision: 0, startedTurn: targetTurn, processingTurn: targetTurn, lastProcessedTurn: targetTurn - 1,
@@ -173,6 +177,8 @@ export function getBattleEngine(state, id, rules, { targetTurn = currentTargetTu
   try { battle = BattleEngine.fromSnapshot(record.snapshot, { rules }); }
   catch (error) { return fail(`战役存档无法恢复：${error.message}`); }
   battle.campaignRevision = record.revision ?? 0;
+  record.commanders ??= Object.fromEntries(["ally", "enemy"].map(side => [side, record.snapshot.units.find(unit => unit.side === side)?.officerIds?.[0] ?? null]));
+  configureBattleControl(state, record, battle);
   battle.canDefenderRetreat = state.cities.some((city) => city.id !== record.targetCityId && city.factionId === record.defenderFactionId && !cityBesieged(state, city.id));
   if (battle.status === "paused" && record.lastProcessedTurn < targetTurn) {
     record.rationStart = { ...(battle.rationDaysPaid ?? {}) };
@@ -232,6 +238,8 @@ function finishCampaign(state, record, battle) {
     officer.acted = true;
   }
   if (target.battleId === record.id) delete target.battleId;
+  emitDomainEvent(state, { id: `battle:${record.id}:completed`, type: "battle.completed", officerIds: record.officerIds });
+  syncPlayerIdentity(state);
   addEvent(state, record.result.message);
 }
 
@@ -310,7 +318,7 @@ export function battlesDueThisMonth(state, targetTurn = currentTargetTurn(state)
 export function advanceBattleMonths(state, rules, { targetTurn = currentTargetTurn(state), backgroundOnly = true } = {}) {
   const results = [];
   for (const record of battlesDueThisMonth(state, targetTurn)) {
-    if (backgroundOnly && [record.attackerFactionId, record.defenderFactionId].includes(state.playerFactionId)) continue;
+    if (backgroundOnly && participatesInBattle(state, record)) continue;
     const restored = getBattleEngine(state, record.id, rules, { targetTurn });
     if (!restored.ok) return restored;
     const result = simulateBattleMonth(restored.battle);

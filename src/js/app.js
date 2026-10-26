@@ -1,4 +1,8 @@
 import { saveState, createInitialState, addEvent } from "./game/state.js";
+import { ABILITIES, enableOfficerPlay, syncPlayerIdentity, playerOfficer, officerCity } from "./game/character-state.js";
+import { capability, participatesInBattle, canControlUnit, canControlArmy } from "./game/capabilities.js";
+import { simulateBattleMonth } from "./game/battle-simulation.js";
+import { createPersonalUI } from "./ui/personal-view.js";
 import { canIssueCommand, commandLimitEnabled } from "./game/commands.js";
 import {
   availableOfficers,
@@ -71,6 +75,8 @@ let mapColors;
 let territoryData;
 let mapColorConfig;
 let state;
+let personalUI;
+let personalScene = "home";
 let battle = null;
 let battleMode = null;
 let processingEnemy = false;
@@ -103,19 +109,28 @@ async function init() {
       fetch("./data/map-modes.json").then(checkResponse).then((response) => response.json())
     ]);
     scenario = applyAtlasToScenario(scenario, atlas);
+    rules.character = await fetch("./data/character-system.json").then(checkResponse).then(response => response.json());
     // Booting to the title screen never resumes monthly work or replaces a save.
     state = createInitialState(scenario, rules);
     enableWarCampaigns(state, battleMap);
     gameAudio = await createGameAudio();
-    taskUI = createTaskUI({ getState: () => state, onSelectCity: selectCity });
-    warUI = createWarUI({ getState: () => state, onSelectCity: selectCity });
+    const inspectCity = cityId => campaignUI.showCity(cityId, { readOnly: true });
+    taskUI = createTaskUI({ getState: () => state, onSelectCity: inspectCity });
+    warUI = createWarUI({ getState: () => state, onSelectCity: inspectCity });
     economyUI = createEconomyUI({ getState: () => state, rules, onChange: completeStrategyAction });
     stratagemUI = createStratagemUI({ getState: () => state, rules, onChange: completeStrategyAction });
     policyUI = createPolicyUI({ getState: () => state, rules, onChange: completeStrategyAction,
-      canEdit: () => state.started && !battle && !advancingMonth && !state.turnResolution && !state.pendingInvasions?.some((item) => !item.resolved) });
+      canEdit: () => capability(state, "policy").ok && state.started && !battle && !advancingMonth && !state.turnResolution && !state.pendingInvasions?.some((item) => !item.resolved) });
     campaignUI = createCampaignUI({ getState: () => state, scenario, rules, themes: cityThemes,
       onStart: startCampaign, onChange: completeStrategyAction, onSelectCity: selectCity, onOfficer: showOfficerProfile, onTrade: economyUI.showTrade,
       onManualDefense: runDefensiveBattle });
+    personalUI = createPersonalUI({ getState: () => state, rules, themes: cityThemes, bios: officerBios,
+      onChange: completeStrategyAction, onMonth: endMonth, onProfile: showOfficerProfile,
+      onCouncil: () => { personalScene = "council"; state.selectedCityId = officerCity(state)?.id ?? state.selectedCityId; renderStrategy(); strategicMap.fit(); } });
+    const returnHome = () => { if (battle) return; personalScene = "home"; renderStrategy(); };
+    document.querySelector("#personal-journal-button").addEventListener("click", () => personalUI.showJournal());
+    document.querySelector("#council-home-button").addEventListener("click", returnHome);
+    document.querySelector("#request-duty-button").addEventListener("click", () => personalUI.requestDuty());
     strategicMap = new StrategicMap({
       viewport: document.querySelector("#strategic-map"),
       world: document.querySelector("#map-world"),
@@ -159,6 +174,8 @@ async function loadFromMenu(slotId) {
   try {
     const loaded = loadCampaignSlot(slotId, scenario, rules);
     enableWarCampaigns(loaded, battleMap);
+    enableOfficerPlay(loaded, rules);
+    personalScene = "home";
     persistCampaignSelection(loaded, { archiveCurrent: slotId !== "active" });
     state = loaded;
     enterGame();
@@ -250,7 +267,6 @@ function bindStaticEvents() {
     if (state.started) policyUI.showHeavenCycle();
   });
   document.querySelector("#game-menu-button").addEventListener("click", openGameMenu);
-  document.querySelector("#audio-button").addEventListener("click", () => gameAudio.openSettings());
   document.querySelector("#help-button").addEventListener("click", showHelp);
   document.querySelector("#factions-button").addEventListener("click", () => { if (!battle) campaignUI.showFactions(); });
   document.querySelector("#reports-button").addEventListener("click", () => { if (!battle) campaignUI.showJournal(); });
@@ -291,7 +307,8 @@ function eraLabel() {
 }
 
 function renderStrategy() {
-  if (sessionEntered && !menuOpen) { transitionScene("strategy"); gameAudio.setScene("strategy"); }
+  syncPlayerIdentity(state);
+  if (sessionEntered && !menuOpen) { transitionScene(state.playerOfficerId && personalScene === "home" ? "personal" : "strategy"); gameAudio.setScene("strategy"); }
   ["factions-button", "reports-button"].forEach((id) => { document.getElementById(id).disabled = Boolean(state.turnResolution); });
   document.querySelector("#tasks-button").disabled = false;
   document.querySelector("#strategy-screen").classList.remove("is-hidden");
@@ -305,6 +322,11 @@ function renderStrategy() {
   taskUI.renderSummary();
   warUI.renderSummary();
   document.querySelector("#wars-button").disabled = false;
+  if (personalUI && state.playerOfficerId) {
+    personalUI.render();
+    document.querySelector("#personal-screen").classList.toggle("is-hidden", personalScene !== "home");
+    document.querySelector("#strategy-screen").classList.toggle("is-hidden", personalScene === "home");
+  }
 }
 
 function renderTurnRibbon() {
@@ -404,6 +426,7 @@ function renderCityDetail() {
   const tradeButton = document.querySelector("#city-trade-button");
   tradeButton.hidden = !isOwn;
   tradeButton.disabled = !state.started || Boolean(state.turnResolution) || getCampaignStatus(state).status !== "active" || !canIssueCommand(state) || !availableOfficers(state, city).length || state.pendingInvasions?.some((item) => !item.resolved);
+  if (!capability(state, "government", { cityId: city.id, kind: "trade" }).ok) tradeButton.disabled = true;
   if (activeBattleCampaigns(state).some((record) => record.targetCityId === city.id)) {
     tradeButton.disabled = true;
     tradeButton.title = "城池交战中，军需由战场统一管理";
@@ -435,6 +458,8 @@ function renderCommandAvailability() {
     const needsForeign = category === "diplomacy";
     button.disabled = !state.started || Boolean(state.turnResolution) || getCampaignStatus(state).status !== "active" || state.pendingInvasions?.some((item) => !item.resolved) || (needsOwn && !isOwn) || (needsForeign && (isOwn || neutral)) || (category === "strategy" && neutral);
     button.title = neutral ? "空城暂无势力，可由相邻的我方城池出兵进驻" : needsForeign && isOwn ? "请先选择其他势力的城池" : needsOwn && !isOwn ? "请先选择本势力城池" : "";
+    const permission = capability(state, "government", { cityId: city.id, kind: needsForeign ? "diplomacy" : category });
+    if (!permission.ok) { button.disabled = true; button.title = permission.reason; }
     if (isOwn && activeBattleCampaigns(state).some((record) => record.targetCityId === city.id)) {
       button.disabled = true;
       button.title = "本城正在交战，城务与军需由战场统一管理；可在战役簿追踪";
@@ -544,6 +569,8 @@ async function openCommandGroup(categoryId) {
 }
 
 async function handleCommand(action) {
+  const permission = capability(state, "government", { cityId: selectedCity().id, kind: action });
+  if (!permission.ok) return showToast(permission.reason, "error");
   if (state.turnResolution || battle) return;
   if (["agriculture", "commerce", "patrol", "train", "buildWall", "breedHorses", "craftArmor", "craftCrossbows"].includes(action)) return domesticDialog(action);
   if (action === "recruit") return recruitDialog();
@@ -577,7 +604,7 @@ async function domesticDialog(action) {
     body.querySelector("[data-selected-count]").textContent = selected.length;
     checkboxes.forEach((input) => { input.disabled = !input.checked && selected.length >= rules.maxDomesticOfficers; });
     const chosen = selected.map((input) => getOfficer(state, input.value));
-    const preview = previewDomestic(action, chosen, city, rules);
+    const preview = previewDomestic(action, chosen, city, rules, state);
     body.querySelector("[data-preview]").innerHTML = selected.length
       ? `预计效果：${resource ? EQUIPMENT_LABELS[resource] : ""}<strong>+${preview.gain}</strong>${action === "buildWall" ? city.defense < 100 ? " 城防度" : city.wallLevel < 3 ? " 扩筑进度" : "（城墙已完好）" : ""}${action === "train" ? `，士气 +${preview.moraleGain}` : ""} · 消耗金 <strong>${preview.expense}</strong>${resource ? `<br>完成后预计库存 ${number((city[resource] ?? 0) + preview.gain)}` : ""}`
       : "请选择执行武将。";
@@ -723,6 +750,14 @@ async function runCampaignBattle(record) {
   if (record.status === "ended") { showToast(record.result?.message ?? "战役已结算"); return record.result ?? { ok: true }; }
   const opened = getBattleEngine(state, record.id, rules, { targetTurn: currentBattleTurn() });
   if (!opened.ok) throw new Error(opened.message);
+  if (!participatesInBattle(state, record)) {
+    const simulation = simulateBattleMonth(opened.battle);
+    if (!simulation.ok) throw new Error(simulation.message);
+    const result = checkpointBattle(state, record.id, opened.battle, { targetTurn: currentBattleTurn() });
+    if (!result.ok) throw new Error(result.message);
+    saveBattleState();
+    return result;
+  }
   battle = opened.battle;
   battleCampaignId = record.id;
   battleTaskId = record.taskId ?? null;
@@ -776,7 +811,7 @@ function clearBattleAnimation() {
 
 async function processUnfinishedCampaignBattles() {
   for (const record of activeBattleCampaigns(state).filter((item) => item.status === "active"
-    && [item.attackerFactionId, item.defenderFactionId].includes(state.playerFactionId))) {
+    && participatesInBattle(state, item))) {
     await runCampaignBattle(record);
   }
 }
@@ -844,7 +879,7 @@ async function endMonth() {
   advancingMonth = true;
   renderTurnRibbon();
   try {
-  const activeGovernors = playerCities(state).filter((city) => city.governorId && !getOfficer(state, city.governorId)?.acted).length;
+  const activeGovernors = playerCities(state).filter((city) => city.governorId && city.governorId !== state.playerOfficerId && capability(state, "government", { cityId: city.id }).ok && !getOfficer(state, city.governorId)?.acted).length;
   const harvest = state.month % 12 + 1 === rules.economy.harvestMonth;
   const budgets = playerCities(state).map((city) => ({ city, budget: previewCityEconomy(state, city, rules) }));
   const warnings = budgets.flatMap(({ city, budget }) => [
@@ -886,7 +921,8 @@ function buildRadar(officer) {
 }
 
 async function showOfficerProfile(officer) {
-  if (!officer) return;
+  officer = getOfficer(state, typeof officer === "string" ? officer : officer?.id);
+  if (!officer) { showToast("未找到这位武将的资料", "error"); return; }
   const body = document.createElement("div");
   body.className = "officer-profile";
   body.innerHTML = `
@@ -894,7 +930,7 @@ async function showOfficerProfile(officer) {
     <section class="officer-biography"><span class="kicker">人物列传</span><h3>${escapeHtml(officer.name)}${officer.courtesy ? ` · ${escapeHtml(officer.courtesy)}` : ""}</h3><p>${escapeHtml(officerBios[officer.id] ?? "此人事迹尚待补录。")}</p>
       <div class="officer-meta-grid"><div><span>所属势力</span><strong>${escapeHtml(officer.status === "free" ? "在野" : officer.status === "captured" ? "俘虏" : getFaction(state, officer.factionId)?.name ?? "在野")}</strong></div><div><span>当前职位</span><strong>${escapeHtml(officer.rank)}</strong></div><div><span>累计功勋</span><strong>${number(officer.merit)}</strong></div><div><span>本月状态</span><strong>${officer.battleId ? "跨月作战中" : officer.taskId ? "执行任务中" : officer.acted ? "已行动" : "待命"}</strong></div><div><span>所在城池</span><strong>${escapeHtml(getCity(state, officer.locationCityId)?.name ?? state.cities.find((city) => city.officerIds.includes(officer.id))?.name ?? "未详")}</strong></div><div><span>忠诚</span><strong>${officer.status === "active" ? officer.loyalty ?? "—" : "—"}</strong></div></div>
     </section>
-    <aside class="radar-panel"><h3>五维能力</h3>${buildRadar(officer)}</aside>`;
+    <aside class="radar-panel"><h3>五维能力</h3>${buildRadar(officer)}${officer.id === state.playerOfficerId ? `<div class="personal-growth-detail"><strong>能力历练 · 每100点提升能力</strong>${Object.entries(ABILITIES).map(([key, label]) => `<p><span>${label}</span><span>${officer.growth?.[key] ?? 0}/100</span></p>`).join("")}<p><span>名声（预留）</span><span>${officer.fame ?? 0}</span></p></div>` : ""}</aside>`;
   await openDialog({ title: `武将资料 · ${officer.name}`, content: body, confirmText: "返回", hideCancel: true, wide: true });
 }
 
@@ -926,9 +962,10 @@ async function showEnemyIntel(city) {
 
 async function showHelp() {
   const content = `
-    <p class="modal-description">建安元年末，选择任一势力经营领土、延揽人才、结交盟友，最终统一天下。天下 ${state.cities.length} 座城池均可争夺。</p>
+    <p class="modal-description">建安元年末，扮演一位武将，在个人生活与天下经营之间行走。天下 ${state.cities.length} 座城池均可争夺。</p>
+    <div class="result-preview"><strong>个人生活与公务</strong><br>私金与官库分账。军营、农田、市场、城墙、工坊的建设消耗主角私金与个人行动力，成果即时归本城；酒馆解忧、月俸和公务赏金可补充私金。募兵初始粮费折算为私金支付，不扣官粮。<br>议政厅承办战略指令、政策与限期公务。没有个人从军行动，进攻提案尚未开放。请领公务后，在指定城池亲自完成工作量，默认限三个月（含当月），达标回厅复命；不是过月自动代办。任务簿可追踪进度与期限。君主发政令、太守处理本城政务不耗个人行动力，费用由官库承担。</div>
     <div class="result-preview"><strong>任务与运输</strong><br>城市命令在过月时完成。签发时占用${commandLimitEnabled(state) ? "指令、" : ""}执行武将及所需兵员钱粮，成果尚不生效；顶部「任务簿」追踪执行中及本回合刚完成的任务。先结算到期任务，再处理月底收支及群雄行动。运输允许混合兵员、钱粮、良马、劲弩与甲胄，也可只运装备；沿己方或有效盟友城池组成的路线，一个回合送达任意联通城池，敌方与中立城池阻断路线。送往盟友的物资归盟友使用，执行武将不随运输迁任。</div>
-    <div class="result-preview"><strong>军备与改革</strong><br>各城独立储存良马、劲弩、甲胄，内政中的挑选良马、制作弓弩、打造甲胄花费金钱并派将执行。每件装备供应一名对应士兵；混编时合计全军需求，签发出征令即预扣。装备随战损减少，幸存装备随退军或入城归库。<br>左上「全局政策」使用改革力：每月底基础获取 ${rules.research?.monthlyGain ?? 100}，无积累上限。内政分王／霸、军事分正／奇；偏重一方会提高对立方向的研习费用。理念组成小树，完成整组可获额外月收入。研习即时扣改革力，不耗城市指令或武将行动；回退不退款，并连带取消依赖理念。六种高级兵种由对应理念解锁，回退不改动已签发出征令或战场部队。<br>天意循环：得城、研习算胜，失城、回退算败；胜势降低改革力收入，败势提高收入，按月渐强，反向事件立即替换旧效果。具体倍率和预计收入可在政策窗口查看；标注“效果待定”的理念尚无额外经济或战斗效果。</div>
+<div class="result-preview"><strong>军备与改革</strong><br>各城独立储存良马、劲弩、甲胄，内政中的挑选良马、制作弓弩、打造甲胄花费金钱并派将执行。每件装备供应一名对应士兵；混编时合计全军需求，签发出征令即预扣。装备随战损减少，幸存装备随退军或入城归库。<br>议政厅内「全局政策」使用改革力：每月底基础获取 ${rules.research?.monthlyGain ?? 100}，无积累上限。内政分王／霸、军事分正／奇；偏重一方会提高对立方向的研习费用。理念组成小树，完成整组可获额外月收入。研习即时扣改革力，不耗城市指令或武将行动；回退不退款，并连带取消依赖理念。六种高级兵种由对应理念解锁，回退不改动已签发出征令或战场部队。<br>天意循环：得城、研习算胜，失城、回退算败；胜势降低改革力收入，败势提高收入，按月渐强，反向事件立即替换旧效果。具体倍率和预计收入可在政策窗口查看；标注“效果待定”的理念尚无额外经济或战斗效果。</div>
     <div class="result-preview"><strong>混编能力与射击</strong><br>每队可自由填写不同兵种人数，合计不超过主将的官职兵额，副将不增加兵额。将领能力、训练、士气与兵种共同生成统一的肉搏火力／防护、远程火力／防护、移动力和视野面板，战损及增援后重算。火力按对应士兵人数累加；移动和视野取决于编成比例，而不会随总人数减半。<br>攻击为邻接肉搏；编入一名射手也可射击，但仅贡献该射手的微小火力。射击无反击，受视野和射程限制。火矢消耗 ${rules.battle.ranged?.fireArrowActionPoints ?? 3} 行动力及金 ${rules.battle.ranged?.fireArrowGoldCost ?? 30}，射击后有 ${Math.round((rules.battle.ranged?.fireArrowChance ?? .3) * 100)}% 概率追加一次引燃效果。</div>
     <div class="result-preview"><strong>兵种伤亡倾向</strong><br>编成比例不会锁定。每次伤亡按「当前人数 × 该攻击类型的暴露系数」分摊，随后按剩余兵种重算战力与装备。暴露系数只改变谁承担伤亡，不额外放大总伤害。<br>近战（包括反击、伏击、攻城与拦截）更容易损失步兵，射击的偏向较弱，火攻默认按人数分摊。火矢先结算箭伤，再单独结算引燃。随着步兵减少，其分担能力自然下降；不额外设置前后排或掩护不足惩罚。攻城按全军兵种统一分摊，城内预备兵按步兵计入。各兵种系数可在编成表中查看。</div>
     <div class="result-preview"><strong>战略层</strong><br>${commandLimitEnabled(state) ? `每月有 ${rules.commandsPerMonth} 道君主指令` : "测试期间君主指令数不限"}；每名武将通常只能行动一次。每城独立保存钱粮，商业决定每月金收入，农业决定每年七月回合开始前的收粮，民心影响两种收入。每月按兵力耗粮、按将领职位付俸禄：缺粮损兵，欠饷降低忠诚。任命太守后，空闲太守会在月底支付费用并自动改善最薄弱的事务。</div>
@@ -966,6 +1003,7 @@ async function openGameMenu() {
         blockedReason: systemMenuBlockReason(), canLoad: listCampaignSaves(scenario.id).length > 0
       });
       if (!action) break;
+      if (action === "audio") { await gameAudio.openSettings(); continue; }
       requireSafeCampaignSwitch();
       if (action === "save") {
         const saved = await saveGameDialog({
@@ -1004,16 +1042,19 @@ async function openGameMenu() {
   }
 }
 
-async function startCampaign(factionId) {
+async function startCampaign(factionId, officerId) {
   if (switchingCampaign) throw new Error("正在切换征程，请稍候。");
   switchingCampaign = true;
   try {
     const nextState = createInitialState(scenario, rules);
     enableWarCampaigns(nextState, battleMap);
     nextState.playerFactionId = factionId;
+    enableOfficerPlay(nextState, rules, officerId);
+    personalScene = "home";
     nextState.started = true;
     const faction = getFaction(nextState, factionId);
     nextState.selectedCityId = getCity(nextState, faction.capitalId)?.factionId === factionId ? faction.capitalId : playerCities(nextState)[0].id;
+    nextState.selectedCityId = officerCity(nextState)?.id ?? nextState.selectedCityId;
     addEvent(nextState, `${faction.name}举旗于${getCity(nextState, nextState.selectedCityId).name}。经营领土、延揽人才，待时逐鹿天下。`);
     persistCampaignSelection(nextState, { archiveCurrent: true });
     state = nextState;
@@ -1027,6 +1068,7 @@ async function startCampaign(factionId) {
 }
 
 async function showBattle() {
+  document.querySelector("#personal-screen").classList.add("is-hidden");
   warUI?.renderSummary();
   ["factions-button", "reports-button", "tasks-button", "wars-button"].forEach((id) => { document.getElementById(id).disabled = true; });
   document.querySelector("#strategy-screen").classList.add("is-hidden");
@@ -1056,7 +1098,8 @@ function renderBattle() {
   document.querySelector("#siege-view").classList.toggle("is-hidden", !inSiege);
   document.querySelector("#siege-log-window").classList.toggle("is-hidden", !inSiege);
   document.querySelector("#battle-phase-label").textContent = inSiege ? "攻城 · 全军合算" : "野战 · 部队行动";
-  document.querySelector("#retreat-button").disabled = processingEnemy || battleResolved;
+  document.querySelector("#retreat-button").disabled = processingEnemy || battleResolved || !canControlArmy(battle);
+  document.querySelector("#retreat-button").title = canControlArmy(battle) ? "" : "你不是全军主帅，只能指挥所在部队；攻城由主帅自动下令";
   const source = getCity(state, battle.sourceCityId);
   const target = getCity(state, battle.targetCityId);
   const defending = battle.playerSide === "enemy";
@@ -1072,7 +1115,7 @@ function renderBattle() {
   document.querySelector("#enemy-troops").textContent = inSiege ? troopLabel(battle.aiSide)
     : `已发现 ${number(battle.visibleUnits(battle.playerSide).filter((unit) => unit.side === battle.aiSide).reduce((sum, unit) => sum + unit.troops, 0))}`;
   if (inSiege) {
-    renderSiegeView(document.querySelector("#siege-view"), battle, { cityName: target.name, busy: processingEnemy || battleResolved,
+    renderSiegeView(document.querySelector("#siege-view"), battle, { cityName: `${target.name}${!canControlArmy(battle) ? " · 主帅自动指挥" : ""}`, busy: processingEnemy || battleResolved || !canControlArmy(battle),
       onDecision: (action) => performSiegeAction(() => battle.chooseTransition(action)),
       onOrder: (action) => performSiegeAction(() => battle.siegeOrder(battle.playerSide, action)) });
     document.querySelector("#siege-log").innerHTML = battle.getVisibleLog(battle.playerSide).map((entry) => `<p><strong>${entry.day}日</strong> · ${escapeHtml(entry.message)}</p>`).join("");
@@ -1086,7 +1129,7 @@ function renderBattle() {
     return `<div class="supply-line ${days < 3 ? "low-supply" : ""}"><strong>${label}　粮 ${number(stores.food)} · 金 ${number(stores.gold)}</strong><small>现兵力日耗 ${number(battle.dailyFoodNeed(side))} 粮 · 约可再供 ${Number.isFinite(days) ? days : "—"} 日</small></div>`;
   }).join("")}`;
   const active = battle.activeUnit;
-  document.querySelector("#active-side-label").textContent = !active ? "战斗结束" : `${active.side === battle.playerSide ? "我军行动" : "敌军行动"}${battle.hasForcedAction() && battle.isUnitVisibleTo(active, battle.playerSide) ? " · 中计" : ""}`;
+  document.querySelector("#active-side-label").textContent = !active ? "战斗结束" : `${active.side === battle.playerSide ? canControlUnit(battle) ? "我军行动 · 由你指挥" : "友军行动 · 主帅指挥" : "敌军行动"}${battle.hasForcedAction() && battle.isUnitVisibleTo(active, battle.playerSide) ? " · 中计" : ""}`;
   renderInitiative();
   renderBattlefield();
   renderActiveUnit();
@@ -1151,7 +1194,7 @@ function renderActiveUnit() {
       : mode === "move" || mode === "cautious" ? battle.reachableTiles(unit, { cautious: mode === "cautious" }).length === 0
         : mode === "ambush" ? !battle.canAmbush(unit) : false;
     const lacksGold = (strategy || mode === "fireArrow") && battle.supplies[unit.side].gold < battle.strategyGoldCost(mode);
-    button.disabled = unit.side !== battle.playerSide || processingEnemy || battle.hasForcedAction() || battle.status !== "active" || lacksPoints || lacksGold || lacksRanged;
+    button.disabled = !canControlUnit(battle, unit) || processingEnemy || battle.hasForcedAction() || battle.status !== "active" || lacksPoints || lacksGold || lacksRanged;
     button.title = battle.hasForcedAction() ? "中计部队的本次行动由计略控制" : lacksRanged ? "本部队没有具备射击能力的兵种" : lacksGold ? "随军金不足" : mode === "ambush" && !battle.canAmbush(unit) ? "只能在树林、山地设伏，且会结束本次行动" : "";
     button.classList.toggle("active", button.dataset.mode === battleMode);
     if (mode === "attack") button.querySelector("small").textContent = `消耗 ${battle.actionCost("attack", unit)} 行动力`;
@@ -1165,7 +1208,7 @@ function renderBattleLog() {
 }
 
 async function handleBattleTile(x, y) {
-  if (!battleMode || processingEnemy || battle.hasForcedAction() || battle.activeUnit?.side !== battle.playerSide) return;
+  if (!battleMode || processingEnemy || battle.hasForcedAction() || !canControlUnit(battle)) return;
   if (battleMode === "move" || battleMode === "cautious") return animateMoveTo(x, y);
   const unit = battle.visibleUnitAt(x, y, battle.playerSide);
   if (!unit) return showToast("这里没有可选目标", "error");
@@ -1229,7 +1272,7 @@ async function animateAmbushes(result) {
 }
 
 async function performBattleAction(action, animation = null) {
-  if (processingEnemy || !battle || battle.hasForcedAction() || battle.status !== "active" || battle.activeUnit?.side !== battle.playerSide) return;
+  if (processingEnemy || !battle || battle.hasForcedAction() || battle.status !== "active" || !canControlUnit(battle)) return;
   processingEnemy = true;
   let result;
   try {
@@ -1268,6 +1311,7 @@ async function performBattleAction(action, animation = null) {
 
 async function performSiegeAction(action) {
   if (!battle || processingEnemy || battleResolved || battle.status !== "active") return;
+  if (!canControlArmy(battle)) return;
   if (battle.pendingDecision && battle.pendingDecision.side !== battle.playerSide) return;
   processingEnemy = true;
   let result;
@@ -1328,6 +1372,7 @@ function delay(milliseconds) {
 
 async function retreatBattle() {
   if (!battle || processingEnemy) return;
+  if (!canControlArmy(battle)) return;
   const defending = battle.playerSide === "enemy";
   const confirmed = await confirmDialog(defending
     ? { title: "弃城撤退", mark: "退", confirmText: "放弃城池", message: `本城与剩余钱粮将归进攻方，守军撤往另一己方城池。<br>${battle.siege?.encirclement === "encircle" ? "敌军全面包围：突围会承受追击损失。" : "当前仍有撤离通道，撤退不额外损兵。"}<br>若已无其他己方城池，则无法撤退。确定弃城吗？` }

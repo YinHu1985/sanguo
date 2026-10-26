@@ -5,7 +5,7 @@ import { commandLimitEnabled } from "../game/commands.js";
 export function saveCardMarkup(save, checked = false, rules = {}) {
   const content = save.empty
     ? `<strong>${save.invalid ? "存档无法读取" : "空白存档"}</strong><span>${save.invalid ? "原记录不会自动清除，覆盖前会再次确认。" : "可将当前征程保存在此处。"}</span>`
-    : `<strong>${esc(save.factionName)}</strong><span>${esc(save.year)} 年 ${esc(save.month)} 月 · ${esc(save.cities)} 城 · ${commandLimitEnabled(rules) ? `余 ${esc(save.commands)} 道指令` : "指令不限"}</span>
+    : `<strong>${save.officerName ? `${esc(save.officerName)} · ` : ""}${esc(save.factionName)}</strong><span>${esc(save.year)} 年 ${esc(save.month)} 月 · ${esc(save.cities)} 城 · ${save.officerName ? `个人行动力 ${esc(save.personalAP)}` : commandLimitEnabled(rules) ? `余 ${esc(save.commands)} 道指令` : "指令不限"}</span>
       <em>${save.pending ? "月结尚未完成 · 读取后继续处理" : "战略进度已保存在本机"}</em>`;
   return `<label class="save-slot"><input type="radio" name="save-slot" value="${esc(save.id)}" ${checked ? "checked" : ""}>
     <span><small>${esc(save.label)}</small>${content}</span></label>`;

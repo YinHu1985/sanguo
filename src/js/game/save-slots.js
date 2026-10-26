@@ -72,6 +72,7 @@ function hasPendingResolution(saved) {
 function summarizeSlot(slot, saved) {
   const faction = saved.factions.find((entry) => entry.id === saved.playerFactionId);
   return { id: slot.id, label: slot.label, factionName: faction.name, year: saved.year, month: saved.month,
+    ...(saved.playerOfficerId ? { officerName: saved.officers.find(o => o.id === saved.playerOfficerId)?.name ?? "未详武将", personalAP: saved.personal?.ap ?? 0 } : {}),
     cities: saved.cities.filter((city) => city.factionId === saved.playerFactionId).length,
     commands: saved.commandsRemaining ?? 0, pending: hasPendingResolution(saved) };
 }

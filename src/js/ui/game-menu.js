@@ -19,8 +19,9 @@ export async function chooseGameMenu({ summary, blockedReason = "", canLoad = tr
     <div class="system-menu-options">${[
       ["save", "存", "存档", "保存到独立的手动存档位"],
       ["load", "读", "读档", canLoad ? "选择自动或手动存档继续" : "暂无可读取的存档"],
+      ["audio", "乐", "声音设置", "音乐、音效与静音"],
       ["title", "返", "返回主菜单", "确认后返回游戏标题画面"]
-    ].map(([id, mark, label, hint]) => `<button type="button" class="system-menu-option" data-system-action="${id}" ${blockedReason || id === "load" && !canLoad ? "disabled" : ""}>
+    ].map(([id, mark, label, hint]) => `<button type="button" class="system-menu-option" data-system-action="${id}" ${id !== "audio" && (blockedReason || id === "load" && !canLoad) ? "disabled" : ""}>
       <i>${mark}</i><span><strong>${label}</strong><small>${hint}</small></span><b aria-hidden="true">›</b></button>`).join("")}</div>`;
   let chosen = null;
   body.addEventListener("click", (event) => {

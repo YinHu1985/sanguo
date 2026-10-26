@@ -1,4 +1,6 @@
 import { addEvent } from "./state.js";
+import { isAIManagedCity } from "./capabilities.js";
+import { previewDomestic } from "./rules.js";
 import { NEUTRAL_FACTION_ID } from "./atlas.js";
 import { dailyFoodCost, monthlyFoodCost, monthlySalaryCost, grainExchangeRate } from "./economy.js";
 import { armyLimits, formationCapacity, formationOfficerIds, groupOfficersForArmy } from "./army.js";
@@ -319,7 +321,7 @@ export function getCampaignStatus(state) {
   const rivalFactions = [...new Set(occupied.filter((city) => city.factionId !== state.playerFactionId).map((city) => city.factionId))];
   const fieldFactions = new Set(activeBattleCampaigns(state).flatMap((battle) => [battle.attackerFactionId, battle.defenderFactionId]));
   if (state.warCampaignsVersion === 1) for (const invasion of state.pendingInvasions ?? []) if (!invasion.resolved) fieldFactions.add(invasion.attackerFactionId);
-  return { status: !owned.length && !fieldFactions.has(state.playerFactionId) ? "defeat" : !rivalFactions.length && ![...fieldFactions].some((id) => id !== state.playerFactionId) ? "victory" : "active", ownedCities: owned.length,
+  return { status: state.playerOfficerId ? "active" : !owned.length && !fieldFactions.has(state.playerFactionId) ? "defeat" : !rivalFactions.length && ![...fieldFactions].some((id) => id !== state.playerFactionId) ? "victory" : "active", ownedCities: owned.length,
     totalCities: state.cities.length, occupiedCities: occupied.length, rivalFactions: rivalFactions.length };
 }
 
@@ -367,7 +369,7 @@ function applyCampaignCasualties(army, loss, contribution, rules) {
 
 function createArmy(state, source, rules) {
   if (cityBesieged(state, source.id)) return { divisions: [], composition: {}, troops: 0 };
-  const commanders = activeOfficers(state, source).filter((officer) => !officer.acted && !officer.taskId)
+  const commanders = activeOfficers(state, source).filter((officer) => !officer.acted && !officer.taskId && officer.id !== state.playerOfficerId)
     .sort((a, b) => (b.leadership + b.war * 0.25) - (a.leadership + a.war * 0.25));
   const availableTroops = source.assemblyReady ? source.troops - 3000 : Math.min(source.troops * 0.65, source.troops - 1500);
   let budget = Math.floor(availableTroops / 100) * 100;
@@ -544,7 +546,7 @@ export function autoResolveInvasion(state, invasion, rules, stance = "defend", r
 }
 
 function administerAICity(state, city, rules) {
-  const officers = activeOfficers(state, city).filter((officer) => !officer.acted);
+  const officers = activeOfficers(state, city).filter((officer) => !officer.acted && !officer.taskId && officer.id !== state.playerOfficerId);
   const [officer] = officers.sort((a, b) => b.politics - a.politics);
   if (!officer) return;
   const hasHostileBorder = city.adjacent.some((id) => {
@@ -574,7 +576,8 @@ function administerAICity(state, city, rules) {
   const choice = choices[0];
   const config = rules.development[choice.action];
   city.gold -= config.expense;
-  const gain = config.base + Math.floor(officer[config.stat] / 16);
+  const preview = previewDomestic(choice.action, [officer], city, rules, state);
+  const gain = preview.work ?? preview.gain;
   if (choice.action === "buildWall") applyWallDevelopment(city, gain);
   else city[choice.key] = clamp(city[choice.key] + gain);
   if (choice.key === "training") city.morale = clamp(city.morale + 3);
@@ -583,7 +586,7 @@ function administerAICity(state, city, rules) {
 
 /** AI uses the same seasonal exchange and acted executor rules as the player, not free relief grain. */
 function tradeAIReserves(state, city, rules) {
-  const officer = activeOfficers(state, city).filter((person) => !person.acted).sort((a, b) => a.leadership - b.leadership)[0];
+  const officer = activeOfficers(state, city).filter((person) => !person.acted && !person.taskId && person.id !== state.playerOfficerId).sort((a, b) => a.leadership - b.leadership)[0];
   if (!officer) return false;
   const rate = grainExchangeRate(state.month, rules);
   const foodReserve = monthlyFoodCost(city.troops, rules) * 3;
@@ -607,7 +610,7 @@ function tradeAIReserves(state, city, rules) {
 function staffVacantAICities(state, rules) {
   const movedByFaction = new Map();
   let moved = 0;
-  const vacancies = state.cities.filter((city) => city.factionId !== state.playerFactionId && city.factionId !== NEUTRAL_FACTION_ID
+  const vacancies = state.cities.filter((city) => isAIManagedCity(state, city)
     && !cityBesieged(state, city.id) && activeOfficers(state, city).length === 0);
   for (const target of vacancies) {
     if ((movedByFaction.get(target.factionId) ?? 0) >= 2) continue;
@@ -617,8 +620,8 @@ function staffVacantAICities(state, rules) {
     while (frontier.length && !replacement) {
       const city = frontier.shift();
       const staff = activeOfficers(state, city);
-      if (city.id !== target.id && staff.length > 1 && city.gold >= (rules.actions?.officerTransfer ?? 30)) {
-        replacement = staff.filter((officer) => !officer.acted).sort((a, b) => {
+      if (city.id !== target.id && isAIManagedCity(state, city) && staff.length > 1 && city.gold >= (rules.actions?.officerTransfer ?? 30)) {
+        replacement = staff.filter((officer) => !officer.acted && !officer.taskId && officer.id !== state.playerOfficerId).sort((a, b) => {
           const priority = (officer) => (officer.rank === "君主" ? 1000 : 0) + (officer.id === city.governorId ? 100 : 0) - officer.politics;
           return priority(a) - priority(b);
         })[0];
@@ -643,7 +646,7 @@ function staffVacantAICities(state, rules) {
 }
 
 function assembleBorderArmies(state, rules, rng) {
-  const aiFactionIds = [...new Set(state.cities.filter((city) => city.factionId !== state.playerFactionId && city.factionId !== NEUTRAL_FACTION_ID).map((city) => city.factionId))];
+  const aiFactionIds = [...new Set(state.cities.filter((city) => isAIManagedCity(state, city)).map((city) => city.factionId))];
   const hostileNeighbors = (city) => (city.adjacent ?? []).map((id) => cityById(state, id)).filter((other) =>
     other && other.factionId !== NEUTRAL_FACTION_ID && !areAllied(state, city.factionId, other.factionId));
   const commandCapacity = (city) => {
@@ -655,7 +658,7 @@ function assembleBorderArmies(state, rules, rng) {
     && commandCapacity(city) < Math.min(15000, city.troops - 3000);
   let assemblies = 0;
   for (const factionId of aiFactionIds) {
-    const fronts = state.cities.filter((city) => city.factionId === factionId && !cityBesieged(state, city.id) && (city.troops < 18000 || needsOfficerOnly(city))
+    const fronts = state.cities.filter((city) => city.factionId === factionId && isAIManagedCity(state, city) && !cityBesieged(state, city.id) && (city.troops < 18000 || needsOfficerOnly(city))
       && city.food >= 3000 && hostileNeighbors(city).length > 0)
       .map((city) => {
         const staff = activeOfficers(state, city);
@@ -676,8 +679,8 @@ function assembleBorderArmies(state, rules, rng) {
         const staff = activeOfficers(state, city);
         const canSupply = officerOnly ? staff.length > 1 && city.gold >= (rules.actions?.officerTransfer ?? 30)
           : city.troops >= 4000 && city.food >= 1500 && city.gold >= (rules.actions?.transfer ?? 40);
-        if (city.id !== target.id && canSupply && hostileNeighbors(city).length === 0) {
-          const officer = staff.filter((person) => !person.acted && !person.taskId && (!officerOnly || person.rank !== "君主"))
+        if (city.id !== target.id && isAIManagedCity(state, city) && canSupply && hostileNeighbors(city).length === 0) {
+          const officer = staff.filter((person) => !person.acted && !person.taskId && person.id !== state.playerOfficerId && (!officerOnly || person.rank !== "君主"))
             .sort((a, b) => b.leadership - a.leadership)[0];
           if (officer) { donor = city; executor = officer; }
         }
@@ -723,7 +726,7 @@ export function runWorldTurn(state, rules, rng = Math.random) {
   if (!state.warCampaignsVersion && state.pendingInvasions.some((item) => !item.resolved)) return { battles: state.pendingInvasions.filter((item) => !item.resolved), summary: [] };
   state.lastWorldTurnMonth = monthNumber(state);
   const summary = [];
-  const aiCities = state.cities.filter((city) => city.factionId !== state.playerFactionId && city.factionId !== NEUTRAL_FACTION_ID && !cityBesieged(state, city.id));
+  const aiCities = state.cities.filter((city) => isAIManagedCity(state, city) && !cityBesieged(state, city.id));
   // Month-end taxes, salary, grain consumption and July harvest are settled once by advanceMonth.
   for (const city of aiCities) tradeAIReserves(state, city, rules);
   const reassigned = staffVacantAICities(state, rules);
@@ -782,6 +785,6 @@ export function runWorldTurn(state, rules, rng = Math.random) {
       summary.push(result.message);
     }
   }
-  for (const city of state.cities.filter((item) => item.factionId !== state.playerFactionId && item.factionId !== NEUTRAL_FACTION_ID)) administerAICity(state, city, rules);
+  for (const city of state.cities.filter((item) => isAIManagedCity(state, item))) administerAICity(state, city, rules);
   return { battles: [...state.pendingInvasions], summary };
 }

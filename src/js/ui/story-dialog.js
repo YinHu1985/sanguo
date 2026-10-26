@@ -41,6 +41,11 @@ export function normalizeStoryPages(options = {}) {
 
 /** Build a report using an actual ruler only; never create a substitute officer. */
 export function buildTurnOpening(state) {
+  if (state.playerOfficerId) {
+    const officer = state.officers.find(o => o.id === state.playerOfficerId);
+    return { speaker: officer?.name ?? null, caption: `${state.year} 年 ${state.month} 月 · 新月`,
+      text: [`轮到我行动了。本月个人行动力 ${state.personal.ap}。`, "可在自宅修习、拜访同僚，或到议政厅请领公务。政务指令与个人行动力分别计算。"] };
+  }
   const faction = (state.factions ?? []).find((entry) => entry.id === state.playerFactionId);
   const lord = faction && (state.officers ?? []).find((officer) => officer.id === faction.lord
     && officer.factionId === faction.id && (!officer.status || officer.status === "active"));

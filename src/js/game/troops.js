@@ -1,4 +1,5 @@
 import { EQUIPMENT_KEYS } from "./equipment.js";
+import { checkRequirements } from "./capabilities.js";
 export { EQUIPMENT_KEYS, EQUIPMENT_NAMES } from "./equipment.js";
 
 /** Troop counts and equipment are integers; one item outfits one matching soldier. */
@@ -43,7 +44,7 @@ export function unitTypeAvailability(typeId, { state, factionId, officers = [], 
   if (!type) return { available: false, reason: "未知兵种" };
   if (type.unlocked) return { available: true, reason: "初始兵种" };
   const faction = state?.factions?.find((entry) => entry.id === factionId);
-  if (faction?.unlockedTechnologies?.includes(type.technology ?? typeId)) return { available: true, reason: "科技已解锁" };
+  if (checkRequirements([{ type: "technology", id: type.technology ?? typeId }], { faction }).ok) return { available: true, reason: "科技已解锁" };
   if (typeof unlockByOfficer === "function" && unlockByOfficer(typeId, officers, { state, factionId, rules })) {
     return { available: true, reason: "将领能力解锁" };
   }

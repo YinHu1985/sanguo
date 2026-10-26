@@ -22,10 +22,18 @@ export function taskOrderNote(rules, kind) {
 
 export function taskCounts(state) {
   const { active, completed } = taskLedgerRecords(state);
+  const personal = personalTaskRecords(state);
   return {
-    active: active.length,
-    completed: completed.length
+    active: active.length + personal.active.length,
+    completed: completed.length + personal.completed.length
   };
+}
+
+export function personalTaskRecords(state, turn = state.elapsedMonths ?? 0) {
+  const records = (state.personal?.assignments ?? []).map(task => ({ ...task, personalAssignment: true }));
+  const active = records.filter(task => ["active", "ready"].includes(task.status));
+  return { active, completed: records.filter(task => !active.includes(task) && task.endedTurn === turn),
+    older: records.filter(task => !active.includes(task) && task.endedTurn !== turn).reverse() };
 }
 
 export function createTaskUI({ getState, onSelectCity }) {
@@ -44,12 +52,17 @@ export function createTaskUI({ getState, onSelectCity }) {
     const currentTurn = state.elapsedMonths ?? 0;
     const reportTurn = completedTurn ?? currentTurn;
     const records = taskLedgerRecords(state, { turn: reportTurn });
-    const active = records.active;
-    const completed = settlement?.tasks ?? records.completed;
-    const older = records.older;
+    const personal = personalTaskRecords(state, reportTurn);
+    const active = [...personal.active, ...records.active];
+    const completed = [...personal.completed, ...(settlement?.tasks ?? records.completed)];
+    const older = [...personal.older, ...records.older];
     const counts = { active: active.length, completed: completed.length };
     const renderTask = (task) => {
       const city = getCity(state, task.cityId);
+      if (task.personalAssignment) {
+        const status = { active: `余 ${Math.max(0, task.deadlineTurn - currentTurn)} 个月（含本月）`, ready: "达标待复命", completed: "已复命领赏", expired: "逾期未完成", cancelled: "委托取消" }[task.status];
+        return `<article class="task-record"><div class="task-record-heading"><strong>个人公务 · ${esc(task.title)}</strong><span class="task-state">${esc(status)}</span></div><p>${esc(city?.name ?? "原城池")} · 亲自完成 ${task.progress}/${task.target}${esc(task.unit)} · 赏金 ${task.reward}</p><div class="task-progress"><i style="width:${Math.min(100, 100 * task.progress / task.target)}%"></i></div><p class="task-record-result">本人自付私金与行动力，地点建设即时生效；达标后回领命城池议政厅复命。过月不会自动代办。</p></article>`;
+      }
       const target = getCity(state, task.targetId ?? task.payload?.targetId);
       const active = taskIsActive(task);
       const remaining = Math.max(0, task.dueTurn - currentTurn);
@@ -67,7 +80,7 @@ export function createTaskUI({ getState, onSelectCity }) {
     const renderLedger = () => {
       const activeSection = `<section><h3 class="window-section-title">正在执行</h3>${active.map(renderTask).join("") || '<p class="task-empty">当前没有在执行的任务，可从城池指令下达。</p>'}</section>`;
       const completedSection = `<section><h3 class="window-section-title">${settlement ? "上期任务结算" : "本回合刚完成"}</h3>${completed.map(renderTask).join("") || '<p class="task-empty">过月后，这里会记录刚刚结算的任务及结果。</p>'}</section>`;
-      body.innerHTML = `<div class="task-ledger-summary"><div><small>正在执行</small><strong>${counts.active}</strong></div><div><small>${settlement ? "本期结算" : "本回合刚完成"}</small><strong>${counts.completed}</strong></div><p>${settlement ? "主公，以下任务已在上月结束时结算。跨月执行的任务仍会继续，军府已将战报及失败原因一并列明。" : "结果在过月结算；兵员和物资已从可用库存划出，执行武将不能重复受命。任务失败时可在记录中查看原因与退回情况。"}</p></div>
+      body.innerHTML = `<div class="task-ledger-summary"><div><small>正在执行</small><strong>${counts.active}</strong></div><div><small>${settlement ? "本期结算" : "本回合刚完成"}</small><strong>${counts.completed}</strong></div><p>${settlement ? "以下任务已在上月结束时结算。跨月执行的任务仍会继续，军府已将战报及失败原因一并列明。" : "政令任务预留官库物资与执行武将，过月结算。个人限期公务不占用将领：请自行到地点出资办事，达标后到议政厅复命。"}</p></div>
         ${settlement ? "" : `<nav class="task-ledger-tabs" aria-label="任务记录分类">${[["all", "全部记录"], ["active", "正在执行"], ["completed", "本月结算"]].map(([key, label]) => `<button class="btn ${tab === key ? "btn-primary" : ""}" type="button" data-task-tab="${key}" aria-pressed="${tab === key}">${label}</button>`).join("")}</nav>`}
         ${tab === "all" ? `<div class="task-ledger-columns">${activeSection}${completedSection}</div>` : tab === "active" ? activeSection : completedSection}
         ${tab === "all" && !settlement && older.length ? `<details class="task-history"><summary>往期记录 · ${older.length} 项</summary>${older.map(renderTask).join("")}</details>` : ""}`;

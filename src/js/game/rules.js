@@ -10,6 +10,10 @@ import { advanceResearch } from "./technology.js";
 import { validateComposition, sumEquipment, equipmentAvailable, primaryTroopType } from "./troops.js";
 import { cityBesieged, officerAtWar, restoreWarLocks } from "./war-state.js";
 import { canIssueCommand, consumeCommand } from "./commands.js";
+import { resolveValue } from "./modifiers.js";
+import { refreshPersonalMonth } from "./character-state.js";
+import { isAIManagedCity } from "./capabilities.js";
+import { refreshPersonalAssignments } from "./personal-assignments.js";
 export { canIssueCommand } from "./commands.js";
 
 export const clamp = (value, min = 0, max = 100) => Math.max(min, Math.min(max, value));
@@ -39,13 +43,15 @@ export function availableOfficers(state, city) {
   return cityOfficers(state, city).filter((officer) => !officer.acted && !officer.taskId && !officerAtWar(state, officer.id));
 }
 
-export function previewDomestic(action, officers, city, rules) {
+export function previewDomestic(action, officers, city, rules, state = { officers, cities: [city], factions: [] }) {
   const config = rules.development[action];
   if (!config || officers.length === 0) return { gain: 0, expense: 0 };
   const totalStat = officers.reduce((sum, officer) => sum + officer[config.stat], 0);
   const teamwork = Math.max(0, officers.length - 1) * 2;
-  const varianceFreeGain = config.base * (config.resource ? officers.length : 1)
+  const baseGain = config.base * (config.resource ? officers.length : 1)
     + Math.floor(totalStat / (config.statDivisor ?? 16)) + teamwork;
+  const varianceFreeGain = resolveValue(state, "domestic.gain", baseGain, { action, cityId: city.id,
+    factionId: city.factionId, officerIds: officers.map(o => o.id) }, { round: "floor" }).value;
   if (EQUIPMENT_KEYS.includes(config.resource)) {
     return { gain: varianceFreeGain, expense: config.expense * officers.length, targetKey: config.resource, resource: config.resource };
   }
@@ -64,6 +70,22 @@ export function previewDomestic(action, officers, city, rules) {
   };
 }
 
+/** Shared work effects only: callers decide funding, action budget and rewards. */
+export function applyDomesticWork(city, action, preview) {
+  if (action === "buildWall") applyWallDevelopment(city, preview.work);
+  else if (preview.resource) city[preview.resource] = (city[preview.resource] ?? 0) + preview.gain;
+  else city[preview.targetKey] = clamp(city[preview.targetKey] + preview.gain);
+  if (action === "train") city.morale = clamp(city.morale + preview.moraleGain);
+}
+
+export function applyRecruitment(city, amount, rules) {
+  const supportPenalty = Math.ceil(amount / 1000) * rules.recruit.popularSupportPenaltyPerThousand;
+  city.troops += amount;
+  city.popularSupport = clamp(city.popularSupport - supportPenalty);
+  city.training = clamp(Math.round((city.training * (city.troops - amount) + 25 * amount) / city.troops));
+  return supportPenalty;
+}
+
 export function executeDomestic(state, cityId, action, officerIds, rules) {
   if (cityBesieged(state, cityId) || officerIds.some((id) => officerAtWar(state, id))) return { ok: false, message: "城池或将领正在持续战役中" };
   if (!canIssueCommand(state)) return { ok: false, message: "本月指令已用尽" };
@@ -75,17 +97,14 @@ export function executeDomestic(state, cityId, action, officerIds, rules) {
   const valid = officers.length > 0 && officers.length <= rules.maxDomesticOfficers && officers.every((officer) => city.officerIds.includes(officer.id) && !officer.acted && !officer.taskId
     && officer.factionId === city.factionId && !["free", "captured"].includes(officer.status) && (!officer.locationCityId || officer.locationCityId === city.id));
   if (!valid) return { ok: false, message: "武将选择无效，或有人本月已经行动" };
-  const preview = previewDomestic(action, officers, city, rules);
+  const preview = previewDomestic(action, officers, city, rules, state);
   if (action === "buildWall" && preview.gain === 0) return { ok: false, message: "城墙已达三级且城防完好，无需修筑" };
   if (city.gold < preview.expense) return { ok: false, message: `金不足，至少需要 ${preview.expense}` };
   if (preview.resource && (!Number.isSafeInteger(city[preview.resource] ?? 0) || (city[preview.resource] ?? 0) < 0
     || !Number.isSafeInteger((city[preview.resource] ?? 0) + preview.gain))) return { ok: false, message: "装备库存或生产数量无效" };
 
   city.gold -= preview.expense;
-  if (action === "buildWall") applyWallDevelopment(city, preview.work);
-  else if (preview.resource) city[preview.resource] = (city[preview.resource] ?? 0) + preview.gain;
-  else city[preview.targetKey] = clamp(city[preview.targetKey] + preview.gain);
-  if (action === "train") city.morale = clamp(city.morale + preview.moraleGain);
+  applyDomesticWork(city, action, preview);
   officers.forEach((officer) => {
     officer.acted = true;
     officer.merit = (officer.merit ?? 0) + 25 + (preview.resource ? Math.floor(preview.gain / 50) : preview.gain);
@@ -117,12 +136,9 @@ export function executeRecruit(state, cityId, officerId, amount, rules) {
   const foodCost = hundreds * rules.recruit.foodPerHundred;
   if (city.gold < goldCost || city.food < foodCost) return { ok: false, message: "城中金粮不足" };
 
-  const supportPenalty = Math.ceil(roundedAmount / 1000) * rules.recruit.popularSupportPenaltyPerThousand;
   city.gold -= goldCost;
   city.food -= foodCost;
-  city.troops += roundedAmount;
-  city.popularSupport = clamp(city.popularSupport - supportPenalty);
-  city.training = clamp(Math.round((city.training * (city.troops - roundedAmount) + 25 * roundedAmount) / city.troops));
+  const supportPenalty = applyRecruitment(city, roundedAmount, rules);
   officer.acted = true;
   officer.merit += 35;
   consumeCommand(state);
@@ -223,6 +239,7 @@ export function appointGovernor(state, cityId, officerId, rules) {
 export function runGovernorAutomation(state, rules) {
   const reports = [];
   for (const city of playerCities(state)) {
+    if (isAIManagedCity(state, city) || city.governorId === state.playerOfficerId) continue;
     if (cityBesieged(state, city.id)) continue;
     if (!city.governorId) continue;
     const governor = getOfficer(state, city.governorId);
@@ -238,7 +255,7 @@ export function runGovernorAutomation(state, rules) {
       ...(rules.development.buildWall && normalizeCityDefense(city).defense < 85 ? [{ action: "buildWall", value: normalizeCityDefense(city).defense }] : [])
     ].sort((a, b) => a.value - b.value);
     let action = choices[0].action;
-    let preview = previewDomestic(action, [governor], city, rules);
+    let preview = previewDomestic(action, [governor], city, rules, state);
     if (city.gold < preview.expense) {
       reports.push({ cityId: city.id, skipped: true });
       continue;
@@ -284,6 +301,8 @@ export function advanceMonth(state, rules) {
   const harvest = applyAnnualHarvest(state, rules);
   const research = advanceResearch(state, rules);
   state.commandsRemaining = state.commandsMax;
+  refreshPersonalMonth(state, rules);
+  refreshPersonalAssignments(state);
   addEvent(state, `进入${state.year}年${state.month}月，新的政令周期开始。`);
   return { monthly, harvest, research };
 }

@@ -35,7 +35,7 @@ export function warLedgerMarkup(state, filter = "active") {
     <div class="war-sides"><span><small>攻方 · ${esc(row.source)}出兵</small><strong>${esc(row.attacker)}</strong><b>${number(row.attackerTroops)} 兵</b></span><i>对阵</i><span><small>守方 · ${esc(row.target)}</small><strong>${esc(row.defender)}</strong><b>${number(row.defenderTroops)} 兵</b></span></div>
     <p class="war-progress">累计第 ${number(row.day)} 日 · ${esc(row.phase)}${row.wallPercent !== null && row.phase !== "野战" ? ` · 城墙剩余 ${row.wallPercent}%` : ""}${row.food !== null ? `<br>我方战场储备：粮 ${number(row.food)} · 金 ${number(row.gold)}` : ""}</p>
     ${row.reason ? `<p class="war-result">${esc(row.reason)}</p>` : ""}
-    <footer><button class="btn" type="button" data-war-city="${esc(row.targetId)}">定位战场</button><button class="btn" type="button" data-war-report="${esc(row.id)}">查看战报</button></footer>
+    <footer><button class="btn" type="button" data-war-city="${esc(row.targetId)}">战场城池资料</button><button class="btn" type="button" data-war-report="${esc(row.id)}">查看战报</button></footer>
   </article>`).join("") || '<p class="task-empty">此分类暂无战役。出征与群雄交战后，战场将在此持续追踪。</p>';
 }
 

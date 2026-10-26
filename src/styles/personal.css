@@ -1,0 +1,64 @@
+.personal-screen { --place-thickness:60px; --place-length:164px; position: relative; height: calc(100dvh - 88px); min-height: 580px; overflow: hidden; isolation: isolate; background: #263a35 var(--personal-scene) center/cover no-repeat; }
+/* Edge-only HUD: the city scene, not a central menu, is the main surface. */
+.personal-vignette { position: absolute; inset: 0; background: linear-gradient(90deg, #0b201b60, transparent 26%, transparent 78%, #10251b48), linear-gradient(0deg, #0b211b88, transparent 20%); z-index: -1; pointer-events:none; }
+.personal-date { position: absolute; top: 12px; left: 16px; display:flex; align-items:center; justify-content:space-between; gap:20px; width:280px; padding:4px 12px; color: #f0dfb7; background:linear-gradient(90deg,#182f29ed,#182f2980); border-block:1px solid #b59b60; text-shadow: 0 2px 5px #000; }
+.personal-date h2 { font-family: var(--display); font-size: 22px; margin: 0; letter-spacing: 3px; }
+.personal-date > span { font-size:14px; }
+.personal-card { position:absolute; color: #e8dbbd; border: 1px solid #a28b54; outline: 1px solid #584c31; outline-offset: 2px; background: linear-gradient(120deg, #253d37ed, #162a26de); padding: 10px 12px; box-shadow: 0 5px 18px #0004, inset 0 0 0 3px #b39a5a12; }
+.personal-card h2,.personal-card h3 { color: #e8d19b; font-family: var(--display); }
+.personal-card p { font-size: 12px; line-height: 1.6; margin:4px 0; }
+.personal-profile { top:57px; left:16px; width:280px; }
+.personal-identity { display:flex; align-items:center; gap:12px; }
+.personal-monogram { width: 46px; height: 46px; flex-shrink:0; border-radius: 50%; border: 3px double #baa573; display: grid; place-items: center; font-size: 28px; color: #d8c18b; background: radial-gradient(circle, #526557, #172c26); font-family: var(--display); }
+.personal-profile h2 { margin:0; font-size:24px; }
+.personal-profile h2 small { margin-left:12px; color:#c6bea3; font:11px var(--sans); }
+.personal-ledger { display: flex; justify-content:space-between; gap:16px; margin:8px 0; padding-block:5px; border-block:1px solid #b49c6144; font-size:12px; }
+.personal-ledger b { margin-left:8px; font-size: 17px; color: #ead09a; font-variant-numeric:tabular-nums; }
+.personal-ledger b small { font-size:11px; color:#b8b49c; }
+.personal-profile-links { display:flex; gap:6px; }
+.personal-profile-links .btn { flex:1; padding:4px; min-height:28px; font-size:12px; }
+.personal-locations { position:absolute; display:flex; flex-direction:column; gap:6px; width:var(--place-length); }
+.personal-civic { left:16px; top:218px; bottom:24px; width:calc(var(--place-length) * 1.3); overflow-y:auto; }
+.personal-life { left:50%; bottom:16px; transform:translateX(-50%); width:auto; flex-direction:row; align-items:flex-end; gap:10px; }
+.personal-life h3 { position:absolute; left:50%; top:-26px; transform:translateX(-50%); white-space:nowrap; }
+.personal-locations h3 { margin:0 0 2px; color:#f0dfb7; font:14px var(--display); text-shadow:0 2px 5px #000; letter-spacing:3px; }
+.personal-locations button { display: flex; align-items: center; flex-shrink:0; gap: 9px; min-height:var(--place-thickness); padding: 7px 10px; color: #f0e3bf; border: 3px double #ad9460; background: linear-gradient(0deg, #172f29f2, #385246ee, #172f29f2); box-shadow: inset 0 0 0 3px #c7aa6217, 0 3px 8px #0004; text-align: left; transition: background .18s; }
+.personal-locations button:hover { background: #4b5c43f2; }
+.personal-locations button:focus-visible { outline:2px solid #f0db94; outline-offset:2px; }
+.personal-locations button > span { font-family: var(--display); font-size: 19px; color:#bda66d; padding-right:7px; border-right:1px solid #b3995655; }
+.personal-locations b { font-size: 18px; font-family: var(--display); letter-spacing: 1px; white-space:nowrap; }
+.personal-locations small { margin-left:auto; color: #c1ba9e; }
+.personal-life button { width:calc(var(--place-thickness) * 1.1); height:var(--place-length); padding:10px 7px; flex-direction:column; background:linear-gradient(90deg,#172f29f2,#385246ee,#172f29f2); }
+.personal-life button > span { padding:0 0 7px; border-right:0; border-bottom:1px solid #b3995655; width:100%; text-align:center; }
+.personal-life button > small { margin: auto 0 0; transform:rotate(90deg); }
+.personal-life button b { writing-mode:vertical-rl; text-orientation:upright; font-size:20px; letter-spacing:5px; }
+.personal-life button[data-place="home"] { border-color:#e0c58b; color:#fff0c7; background:linear-gradient(90deg,#493326f2,#77563cf0,#493326f2); }
+.personal-life button[data-place="home"]:hover { background:linear-gradient(90deg,#624731,#947044,#624731); }
+.personal-duty-summary { right:16px; top:16px; width:242px; max-height:230px; overflow-y:auto; }
+.personal-duty-summary h3 { margin:0 0 7px; padding-bottom:5px; border-bottom:1px solid #b3995655; font-size:17px; }
+.personal-duty { color: #ead09a; }
+.personal-duty span { display:block; color:#ccc2a5; }
+.personal-bottom-right { position:absolute; bottom:16px; right:16px; display:flex; flex-direction:column; gap:8px; }
+.personal-bottom-right .btn { min-width:148px; min-height:44px; font:20px var(--display); }
+.personal-bottom-right small { font:11px var(--sans); margin-left:12px; }
+.personal-journal-entries { padding-left:24px; line-height:1.9; }
+.personal-journal-entries li { margin-bottom:12px; }
+.personal-growth-detail { margin-top:12px; font-size:12px; }
+.personal-growth-detail p { display:flex; justify-content:space-between; margin:5px 0; }
+.skill-atlas { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; }
+.skill-atlas section { border: 1px solid #bba46c; padding: 7px; background: #e4d7b680; }
+.skill-atlas h3 { margin: 0 0 5px; font-size:16px; }
+.skill-atlas section > div { display: grid; grid-template-columns: repeat(4,1fr); gap: 4px; }
+.skill-atlas section:last-child { grid-column:1/-1; display:flex; align-items:center; gap:15px; }
+.skill-atlas section:last-child > div { grid-template-columns:repeat(2,80px); }
+.skill-atlas button { padding: 5px 3px; font-size:12px; color: #5a5d4c; border: 1px solid #b7a477; background: #e8ddbd; }
+.character-skills [data-skill-detail] { position:sticky; top:0; z-index:1; background:#eee2bf; margin-bottom:8px; font-size:12px; }
+.skill-atlas button small { display: block; font-size: 10px; opacity: .65; }
+.skill-atlas button.selected,.skill-atlas button.learned { background: #375c4c; color: #f5e5b9; }
+.personal-screen.is-hidden { display: none; }
+.personal-council-bar { display: flex; gap: 8px; position: absolute; z-index: 5; bottom: 20px; left: 310px; }
+.council-policy-controls { grid-column:1 / -1; display:flex; gap:8px; padding-top:9px; border-top:1px solid #a28b5480; }
+.council-policy-controls .policy-button,.council-policy-controls .heaven-button { margin:0; flex:1; }
+.strategy-screen .city-roster-panel { top:194px; max-height:calc(100% - 446px); }
+@media(max-width:650px) { .personal-screen { --place-thickness:52px; --place-length:144px; min-height:760px; } .personal-date { width:calc(100% - 32px); } .personal-profile { width:calc(100% - 32px); } .personal-duty-summary { top:218px; width:calc(100% - 235px); max-height:170px; padding:8px; } .personal-life { gap:8px; } .personal-civic { bottom:210px; } .personal-bottom-right .btn { min-width:120px; padding-inline:8px; } .personal-bottom-right small { display:none; } .skill-atlas { grid-template-columns:1fr; } .personal-council-bar { left:20px; bottom:10px; } .council-policy-controls { margin-top:9px; flex-direction:column; } }
+@media(max-width:480px) { .personal-bottom-right { bottom:210px; } }

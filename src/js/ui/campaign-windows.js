@@ -10,6 +10,7 @@ import { cityEconomyMarkup } from "./economy-windows.js";
 import { ambushPreparationMarkup } from "./stratagem-windows.js";
 import { dailyFoodCost } from "../game/economy.js";
 import { commandLimitEnabled } from "../game/commands.js";
+import { capability } from "../game/capabilities.js";
 
 export function cityTheme(city, manifest) {
   return manifest.themes[manifest.regionThemes[city.region] ?? "central"];
@@ -68,7 +69,7 @@ export function createCampaignUI({ getState, scenario, rules, themes, onStart, o
     body.className = "scenario-selection";
     const factions = scenario.factions.filter((faction) => faction.playable !== false && faction.id !== "neutral");
     body.innerHTML = `<div class="scenario-banner"><span class="kicker">${esc(scenario.subtitle)} · 公元 ${scenario.year} 年 ${scenario.month} 月</span><h3>${esc(scenario.title)}</h3><p>${esc(scenario.description ?? scenario.introduction ?? "群雄并起，逐鹿天下。")}</p><div class="scenario-counts">${scenario.cities.length} 座城池　/　${factions.length} 方势力　/　${scenario.officers.length} 位人物</div></div>
-      <p class="modal-description">选择君主开始征程。前两次月度推进，其他势力不会主动进攻玩家。所有进度仅存于本机浏览器。</p>
+      <p class="modal-description">先选势力，再选一位武将开始人生。君主统筹全局、太守治理本城、普通武将请领公务。所有进度仅存于本机浏览器。</p>
       <div class="faction-choice-grid">${factions.map((faction) => {
         const cities = scenario.cities.filter((city) => city.factionId === faction.id);
         const officers = scenario.officers.filter((officer) => officer.factionId === faction.id);
@@ -79,19 +80,22 @@ export function createCampaignUI({ getState, scenario, rules, themes, onStart, o
     const update = () => {
       const faction = factions.find((item) => item.id === body.querySelector("input:checked")?.value) ?? factions[0];
       const capital = scenario.cities.find((city) => city.id === faction.capitalId) ?? scenario.cities.find((city) => city.factionId === faction.id);
-      body.querySelector(".faction-choice-detail").innerHTML = `<strong>${esc(faction.name)} · 治所 ${esc(capital.name)}</strong><p>${esc(faction.description ?? "审时度势，经营城池，逐鹿天下。")}</p>`;
+      body.querySelector(".faction-choice-detail").innerHTML = `<strong>${esc(faction.name)} · 治所 ${esc(capital.name)}</strong><p>${esc(faction.description ?? "审时度势，经营城池，逐鹿天下。")}</p><label>选择主角 <select name="protagonist">${scenario.officers.filter(o => o.factionId === faction.id && !["free", "captured"].includes(o.status)).map(o => {
+        const city = scenario.cities.find(c => c.officerIds.includes(o.id));
+        return `<option value="${esc(o.id)}">${esc(o.name)} · ${o.rank === "君主" ? "君主" : city?.governorId === o.id ? "太守" : "武将"} · ${esc(city?.name ?? "")}</option>`;
+      }).join("")}</select></label>`;
     };
     body.querySelectorAll("input").forEach((input) => input.addEventListener("change", update));
     update();
-    const chosen = await openDialog({ title: "选择剧本 · 群雄逐鹿", content: body, confirmText: "以此势力开始", hideCancel: !allowCancel && !state().started, dismissible: allowCancel || state().started, wide: true,
-      onConfirm: () => body.querySelector("input:checked")?.value || false });
-    if (chosen) await onStart(chosen);
+    const chosen = await openDialog({ title: "选择剧本 · 群雄逐鹿", content: body, confirmText: "以此武将开始", hideCancel: !allowCancel && !state().started, dismissible: allowCancel || state().started, wide: true,
+      onConfirm: () => ({ factionId: body.querySelector("input:checked")?.value, officerId: body.querySelector('[name="protagonist"]').value }) });
+    if (chosen?.officerId) await onStart(chosen.factionId, chosen.officerId);
   }
 
   async function showFactions() {
     const current = state();
     const body = document.createElement("div");
-    body.innerHTML = '<p class="modal-description">点击势力治所可定位。盟约期间双方不能发起进攻；亲善与结盟均需由武将出使。</p>';
+    body.innerHTML = '<p class="modal-description">点击治所查阅城池资料。本窗口只读；亲善、结盟等政令请前往议政厅。</p>';
     const rows = current.factions.filter((faction) => faction.id !== "neutral").map((faction) => {
       const cities = current.cities.filter((city) => city.factionId === faction.id);
       const capital = cities.find((city) => city.id === faction.capitalId) ?? cities[0];
@@ -106,11 +110,11 @@ export function createCampaignUI({ getState, scenario, rules, themes, onStart, o
       { label: "总兵力", numeric: true, render: (row) => number(row.cities.reduce((sum, city) => sum + city.troops, 0)) },
       { label: "对我关系", render: (row) => row.id === current.playerFactionId ? "本势力" : areAllied(current, current.playerFactionId, row.id) ? `同盟 · 余 ${row.relation.allianceUntil - (current.year * 12 + current.month)} 月` : `友好 ${row.relation.friendliness}` }
     ], rows));
-    body.querySelectorAll("[data-city]").forEach((button) => button.addEventListener("click", () => { closeWindow(body); onSelectCity(button.dataset.city, true); }));
+    body.querySelectorAll("[data-city]").forEach((button) => button.addEventListener("click", () => showCity(button.dataset.city, { readOnly: true })));
     await openDialog({ title: "天下势力", content: body, confirmText: "返回地图", hideCancel: true, wide: true });
   }
 
-  async function showCity(cityId) {
+  async function showCity(cityId, { readOnly = false } = {}) {
     const current = state();
     const city = getCity(current, cityId);
     const theme = cityTheme(city, themes);
@@ -121,7 +125,7 @@ export function createCampaignUI({ getState, scenario, rules, themes, onStart, o
       <div class="equipment-stores city-overview-equipment" aria-label="军备库存">${equipmentStoresMarkup(city)}</div>
       ${ambushPreparationMarkup(city, current)}
       ${cityEconomyMarkup(current, city, rules)}
-      ${city.factionId === current.playerFactionId ? '<button type="button" class="btn" data-city-trade>商人 · 买卖粮食</button>' : ""}
+      ${!readOnly && city.factionId === current.playerFactionId ? '<button type="button" class="btn" data-city-trade>商人 · 买卖粮食</button>' : ""}
       <h3 class="window-section-title">城内武将</h3>`;
     body.append(createDataTable([
       { label: "姓名", html: true, render: (officer) => `<button class="text-button" data-officer="${officer.id}">${esc(officer.name)}</button>` }, { key: "rank", label: "职位" },
@@ -135,7 +139,7 @@ export function createCampaignUI({ getState, scenario, rules, themes, onStart, o
     body.append(neighbors);
     body.querySelector("[data-city-trade]")?.addEventListener("click", () => { closeWindow(body); onTrade?.(cityId); });
     body.querySelectorAll("[data-officer]").forEach((button) => button.addEventListener("click", () => onOfficer(getOfficer(current, button.dataset.officer))));
-    body.querySelectorAll("[data-city]").forEach((button) => button.addEventListener("click", () => { closeWindow(body); onSelectCity(button.dataset.city, true); }));
+    body.querySelectorAll("[data-city]").forEach((button) => button.addEventListener("click", () => { closeWindow(body); if (readOnly) showCity(button.dataset.city, { readOnly: true }); else onSelectCity(button.dataset.city, true); }));
     await openDialog({ title: `${city.name} · 城池全览`, content: body, confirmText: "返回军府", hideCancel: true, wide: true });
   }
 
@@ -242,6 +246,11 @@ export function createCampaignUI({ getState, scenario, rules, themes, onStart, o
         continue;
       }
       const city = getCity(state(), invasion.targetId);
+      if (state().playerOfficerId && !capability(state(), "government", { cityId: city.id }).ok) {
+        invasion.resolutionMode = "field";
+        if (!await enterManualDefense()) return false;
+        continue;
+      }
       const source = getCity(state(), invasion.sourceId);
       const hasDefenders = cityOfficers(state(), city).some((officer) => officer.factionId === city.factionId);
       const body = document.createElement("div");

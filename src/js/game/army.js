@@ -1,4 +1,5 @@
 import { autoComposition, EQUIPMENT_KEYS, primaryTroopType } from "./troops.js";
+import { resolveValue } from "./modifiers.js";
 
 const ABILITIES = ["war", "intelligence", "leadership", "politics", "charm"];
 
@@ -18,9 +19,10 @@ export function normalizeFormations(formations) {
 
 /** Ability aggregation is centralized so terrain, traits and weather can be added here later. */
 export function aggregateAbilities(officers, context = {}) {
-  void context;
   return Object.fromEntries(ABILITIES.map((key) => [key,
-    Math.max(0, ...(officers ?? []).map((officer) => Number.isFinite(officer?.[key]) ? officer[key] : 0))]));
+    Math.max(0, ...(officers ?? []).filter(Boolean).map((officer) => resolveValue(context.state ?? { officers, cities: [], factions: [] },
+      `ability.${key}`, Number.isFinite(officer[key]) ? officer[key] : 0,
+      { ...context, officerIds: [officer.id], factionId: officer.factionId }, { round: "floor", max: 100 }).value))]));
 }
 
 export function formationCapacity(officers, rules) {

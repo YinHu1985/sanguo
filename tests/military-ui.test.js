@@ -58,7 +58,7 @@ test("main screen wires policies, equipment, shooting and fire arrows", async ()
   const html = await readFile(new URL("../src/index.html", import.meta.url), "utf8");
   for (const id of ["policies-button", "research-points-label", "city-equipment"]) assert.ok(html.includes(`id="${id}"`));
   for (const mode of ["shoot", "fireArrow"]) assert.ok(html.includes(`data-mode="${mode}"`));
-  assert.ok(html.indexOf('id="policies-button"') < html.indexOf('class="topbar-actions"'));
+  assert.ok(html.indexOf('id="policies-button"') > html.indexOf('id="strategy-screen"'));
   const app = await readFile(new URL("../src/js/app.js", import.meta.url), "utf8");
   assert.match(app, /battle\.shoot\(unit\.id\)/);
   assert.match(app, /battle\.fireArrow\(unit\.id\)/);

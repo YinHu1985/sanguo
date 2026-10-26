@@ -7,6 +7,7 @@ import { normalizeFactionResearch } from "./technology.js";
 import { initializeHeavenCycle, normalizeHeavenCycle } from "./heaven-cycle.js";
 import { activeAmbushPreparation } from "./stratagems.js";
 import { restoreWarLocks } from "./war-state.js";
+import { enableOfficerPlay } from "./character-state.js";
 
 const LEGACY_STORAGE_KEY = "hanmo-zhoujun-save-v1";
 export const storageKey = (scenarioId) => `hanmo-zhoujun-save-v2:${scenarioId}`;
@@ -187,6 +188,7 @@ export function migrateState(saved, scenario, rules) {
     state.battles = Array.isArray(state.battles) ? state.battles : [];
     restoreWarLocks(state);
   }
+  if (state.playerOfficerId) enableOfficerPlay(state, rules);
   return state;
 }
 

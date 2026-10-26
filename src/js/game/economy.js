@@ -62,6 +62,13 @@ export function settleMonthlyEconomy(state, rules) {
     const salaryShortfall = preview.monthlySalary - salaryPaid;
     city.food -= foodSpent;
     city.gold -= salaryPaid;
+    if (state.playerOfficerId && state.personal) {
+      const player = localOfficers(state, city).find(o => o.id === state.playerOfficerId);
+      if (player && preview.monthlySalary > 0) {
+        const due = rules.economy.salaryByRank[player.rank] ?? rules.economy.salaryByRank["从事"];
+        state.personal.gold += Math.floor(due * salaryPaid / preview.monthlySalary);
+      }
+    }
     const troopLoss = foodShortfall > 0
       ? Math.floor(ordinaryGarrisonTroops(state, city) * rules.economy.maxStarvationLossRate * foodShortfall / preview.monthlyFood) : 0;
     const loyaltyLoss = salaryShortfall > 0
@@ -89,6 +96,10 @@ export function settleMonthlyEconomy(state, rules) {
     if (!cost) continue;
     const wallet = record.snapshot.supplies.ally, paid = Math.min(wallet.gold, cost);
     wallet.gold -= paid;
+    if (state.personal && officers.some(o => o.id === state.playerOfficerId)) {
+      const player = officers.find(o => o.id === state.playerOfficerId);
+      state.personal.gold += Math.floor((rules.economy.salaryByRank[player.rank] ?? rules.economy.salaryByRank["从事"]) * paid / cost);
+    }
     if (paid < cost) for (const officer of officers) officer.loyalty = Math.max(0, (officer.loyalty ?? 100) - Math.ceil(rules.economy.maxUnpaidLoyaltyLoss * (cost - paid) / cost));
   }
   syncCampaignEconomy(state);

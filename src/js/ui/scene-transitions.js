@@ -1,5 +1,5 @@
 /** Visual-only motion. Nothing here changes game state or screen visibility. */
-const SCENES = new Set(["menu", "strategy", "field", "siege"]);
+const SCENES = new Set(["menu", "personal", "strategy", "field", "siege"]);
 const panelKeys = new WeakMap();
 
 export function prefersReducedMotion(view = globalThis.window) {

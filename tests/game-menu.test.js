@@ -130,11 +130,11 @@ function installDocument(t) {
 }
 const flush = async () => { for (let index = 0; index < 8; index += 1) await Promise.resolve(); };
 
-test("game menu opens with three options and disables only load when no saves exist", async (t) => {
+test("game menu includes audio settings and disables only load when no saves exist", async (t) => {
   const { top } = installDocument(t);
   const result = chooseGameMenu({ summary: "曹操军", canLoad: false });
   const options = top().querySelectorAll("[data-system-action]");
-  assert.deepEqual(options.map((item) => [item.dataset.systemAction, item.disabled]), [["save", false], ["load", true], ["title", false]]);
+  assert.deepEqual(options.map((item) => [item.dataset.systemAction, item.disabled]), [["save", false], ["load", true], ["audio", false], ["title", false]]);
   top().querySelector(".dialog-confirm").click();
   assert.equal(await result, null, "continue closes without navigating to the title scene");
 });
@@ -146,7 +146,7 @@ test("a blocked menu disables save, load and title, and escapes its summary and 
   assert.doesNotMatch(body.innerHTML, /<img>|<b>处理中/);
   assert.match(body.innerHTML, /&lt;img&gt;/);
   assert.match(body.innerHTML, /&lt;b&gt;处理中/);
-  assert.ok(top().querySelectorAll("[data-system-action]").every((item) => item.disabled));
+  assert.ok(top().querySelectorAll("[data-system-action]").every((item) => item.disabled === (item.dataset.systemAction !== "audio")));
   top().querySelector(".modal-close").click();
   assert.equal(await result, null);
 });
@@ -244,7 +244,7 @@ test("a failed manual write remains in the save chooser and reports failure inst
 test("top-right game control opens the system menu and has no one-click title binding", async () => {
   const app = await readFile(new URL("../src/js/app.js", import.meta.url), "utf8");
   const html = await readFile(new URL("../src/index.html", import.meta.url), "utf8");
-  assert.match(html, /id="game-menu-button"[^>]*aria-haspopup="dialog"[^>]*>菜单<\/button>/);
+  assert.match(html, /id="game-menu-button"[^>]*aria-haspopup="dialog"[^>]*>系统<\/button>/);
   assert.match(app, /querySelector\("#game-menu-button"\)\.addEventListener\("click", openGameMenu\)/);
   assert.doesNotMatch(app, /(?:reset-button|game-menu-button)[^\n]*addEventListener\([^\n]*(?:showMainMenu|returnToTitle)/);
   const menu = app.slice(app.indexOf("async function openGameMenu()"), app.indexOf("async function startCampaign("));

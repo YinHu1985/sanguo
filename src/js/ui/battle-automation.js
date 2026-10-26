@@ -1,10 +1,12 @@
 import { BATTLE_STATUS_DEFINITIONS, getBattleStatus, getControllingStatus } from "../game/battle-statuses.js";
+import { canControlUnit, canControlArmy } from "../game/capabilities.js";
 
 /** Automatic activations are side-agnostic: control strategies can affect the player too. */
 export function needsAutomaticBattleAction(battle) {
   if (!battle || battle.status !== "active") return false;
   if (battle.phase === "field") return Boolean(battle.activeUnit &&
-    (battle.hasForcedAction() || battle.activeUnit.side === battle.aiSide));
+    (battle.hasForcedAction() || !canControlUnit(battle)));
+  if (!canControlArmy(battle)) return true;
   if (battle.pendingDecision) return battle.pendingDecision.side === battle.aiSide;
   return Boolean(battle.siege?.orders[battle.playerSide] && !battle.siege.orders[battle.aiSide]);
 }
@@ -12,8 +14,8 @@ export function needsAutomaticBattleAction(battle) {
 /** One result per call, so every forced step and ambush can be animated by the view. */
 export function runAutomaticBattleStep(battle) {
   if (!needsAutomaticBattleAction(battle)) return { ok: false, message: "当前等待玩家下令。" };
-  if (battle.phase !== "field") return battle.runAISiegeDecision();
-  return battle.hasForcedAction() ? battle.runForcedTurn() : battle.runEnemyTurn();
+  if (battle.phase !== "field") return battle.runAISiegeDecision(battle.pendingDecision?.side ?? (!battle.siege?.orders[battle.playerSide] ? battle.playerSide : battle.aiSide));
+  return battle.hasForcedAction() ? battle.runForcedTurn() : battle.personalControl ? battle.runAITurn(battle.activeUnit.side) : battle.runEnemyTurn();
 }
 
 export function battleControlLabel(unit) {

@@ -12,7 +12,7 @@ export function createMainMenu({ getSaves, onNew, onLoad, onContinue, onAudio, r
     root.querySelector('[data-menu-action="load"]').disabled = busy || !saves.length;
     root.querySelector('[data-menu-action="continue"]').hidden = !canContinue;
     root.querySelector("#menu-save-summary").textContent = saves.length
-      ? `${saves[0].label} · ${saves[0].factionName} · ${saves[0].year} 年 ${saves[0].month} 月`
+      ? `${saves[0].label} · ${saves[0].officerName ? `${saves[0].officerName} · ` : ""}${saves[0].factionName} · ${saves[0].year} 年 ${saves[0].month} 月`
       : "尚无存档 · 选择新游戏，开启征程";
   };
   async function chooseSave() {

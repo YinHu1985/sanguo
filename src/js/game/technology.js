@@ -1,4 +1,5 @@
 import { addEvent } from "./state.js";
+import { capability } from "./capabilities.js";
 import { NEUTRAL_FACTION_ID } from "./atlas.js";
 import { advanceHeavenCycle, heavenCycleStatus, recordHeavenOutcome } from "./heaven-cycle.js";
 
@@ -77,6 +78,8 @@ export function technologyStatus(state, factionId, technologyId, rules) {
 }
 
 function policyMutationBlock(state, factionId) {
+  const permission = capability(state, "policy");
+  if (!permission.ok) return permission.reason;
   if (factionId !== state.playerFactionId) return "只能调整本势力理念";
   if (state.turnResolution || (state.tasks ?? []).some((task) => task.status === "awaiting_battle")) return "请先完成当前回合结算或战斗";
   return null;

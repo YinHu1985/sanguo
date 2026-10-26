@@ -8,6 +8,11 @@ import { EQUIPMENT_KEYS } from "./equipment.js";
 import { executeStratagem, getStratagemConfig } from "./stratagems.js";
 import { cityBesieged, officerAtWar } from "./war-state.js";
 import { canIssueCommand, consumeCommand } from "./commands.js";
+import { capability } from "./capabilities.js";
+import { emitDomainEvent } from "./domain-events.js";
+
+// Internal authority token: personal request service validates the mandate before submission.
+export const DUTY_MANDATE = Symbol("approved-personal-duty");
 
 const KINDS = new Set(["domestic", "recruit", "transfer", "governor", "search", "employ", "officerTransfer", "diplomacy", "trade", "march", "stratagem"]);
 const ACTIVE = new Set(["running", "awaiting_battle", "in_battle"]);
@@ -55,12 +60,13 @@ function checkActors(state, order, completing = false) {
   const city = getCity(state, order.cityId);
   if (cityBesieged(state, order.cityId) || (order.payload?.targetId && ["transfer", "officerTransfer", "march", "stratagem"].includes(order.kind)
     && cityBesieged(state, order.payload.targetId))) return failure("交战城池暂不能执行或接收主动指令");
-  if (!city || city.factionId !== state.playerFactionId || (order.factionId && order.factionId !== city.factionId)) return failure("任务出发城池已不属于我方");
+  const employerId = completing ? order.factionId : state.playerFactionId;
+  if (!city || city.factionId !== employerId || (order.factionId && order.factionId !== city.factionId)) return failure("任务出发城池已不属于我方");
   const locked = busyOfficerIds(state);
   for (const id of order.officerIds) {
     const officer = getOfficer(state, id);
     if (officerAtWar(state, id)) return failure("执行武将正在持续战役中");
-    if (!officer || !city.officerIds.includes(id) || officer.factionId !== state.playerFactionId
+    if (!officer || !city.officerIds.includes(id) || officer.factionId !== employerId
       || (officer.locationCityId && officer.locationCityId !== city.id) || ["free", "captured"].includes(officer.status)) return failure("执行武将不在本城任职或已经不可用");
     if (completing) {
       if (officer.taskId && officer.taskId !== order.id) return failure("执行武将正在执行其他任务");
@@ -146,7 +152,7 @@ function failTask(state, task, message, targetTurn) {
   if (task.status !== "running") return task;
   const source = getCity(state, task.cityId);
   if (task.reservation?.status === "reserved") {
-    if (source?.factionId === task.factionId && source.factionId === state.playerFactionId
+    if (source?.factionId === task.factionId
       && validReservation(task.reservation) && RESOURCE_KEYS.every((key) => isAmount(resourceValue(source, key) + resourceValue(task.reservation, key)))) {
       source.gold += task.reservation.gold;
       source.food += task.reservation.food;
@@ -195,9 +201,14 @@ function completeTask(state, id, rules, targetTurn, rng) {
   }
   const commandsRemaining = state.commandsRemaining;
   draft.commandsRemaining = 1;
+  // Accepted public work belongs to its employer, not to the protagonist's later career.
+  // Legacy primitives receive an employer-scoped private draft; the live player identity never changes.
+  const playerFactionId = draft.playerFactionId;
+  draft.playerFactionId = task.factionId;
   let result;
   try { result = executeOrder(draft, task, rules, rng, targetTurn); }
   catch { return failTask(state, original, "任务执行条件无效", targetTurn); }
+  draft.playerFactionId = playerFactionId;
   if (!result.ok) return failTask(state, original, result.message, targetTurn);
   if (RESOURCE_KEYS.some((key) => !isAmount(resourceValue(source, key)))) return failTask(state, original, "任务结算资源无效", targetTurn);
   if (frozenArmy) Object.assign(source, savedQuality);
@@ -219,15 +230,19 @@ function completeTask(state, id, rules, targetTurn, rng) {
       officer.acted = true;
     }
   }
+  if (task.status === "completed") emitDomainEvent(draft, { id: `task:${task.id}:completed`, type: "task.completed",
+    officerIds: task.officerIds, title: task.title, ability: task.payload.action === "train" ? "leadership" : "politics" });
   Object.assign(state, draft);
   return state.tasks.find((entry) => entry.id === id);
 }
 
 /** Submit orders now; default effects are deferred until the closing turn is resolved. */
-export function queueTask(state, input, rules) {
+export function queueTask(state, input, rules, authority) {
   if (state.turnResolution) return failure("正在结算回合，暂不能下达新任务");
   if (getReadyBattleTask(state)) return failure("请先处理正在进行的战斗");
   if (!input || !KINDS.has(input.kind)) return failure("无此任务类型");
+  const permission = capability(state, "government", { cityId: input.cityId, kind: input.kind });
+  if (!permission.ok && authority !== DUTY_MANDATE) return failure(permission.reason);
   if (!canIssueCommand(state)) return failure("本月指令已用尽");
   let order;
   try {

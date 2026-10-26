@@ -22,6 +22,7 @@
     <link rel="stylesheet" href="./styles/war-campaigns.css?v=20261023-23" />
     <link rel="stylesheet" href="./styles/map-colors.css?v=20261023-24" />
     <link rel="stylesheet" href="./styles/policies.css?v=20261024-28" />
+    <link rel="stylesheet" href="./styles/personal.css?v=20261025-1" />
   </head>
   <body>
     <section id="main-menu" class="main-menu" aria-label="游戏主菜单">
@@ -29,7 +30,7 @@
         <img src="./assets/seal.svg?v=18" class="menu-seal" alt="伍贰三国印" />
         <p class="menu-eyebrow">群雄逐鹿 · 建安元年</p>
         <h1 class="menu-title" aria-label="52三国志">52<span>三国志</span></h1>
-        <p class="menu-subtitle">山河未定，英雄待时。<br />执一方之印，问天下之势。</p>
+        <p class="menu-subtitle">山河未定，英雄待时。<br />以一身入世，问天下之势。</p>
         <nav class="menu-options" aria-label="开始征程">
           <button type="button" class="menu-option" data-menu-action="continue" hidden><i>续</i><span>继续游戏</span></button>
           <button type="button" class="menu-option" data-menu-action="new" disabled><i>启</i><span>新游戏</span></button>
@@ -37,7 +38,7 @@
           <button type="button" class="menu-option secondary" data-menu-action="audio" disabled><i>乐</i><span>声音设置</span></button>
         </nav>
         <p id="menu-save-summary" class="menu-save-summary" aria-live="polite">正在展卷……</p>
-        <footer class="menu-footer"><span>回合制君主经营 · 本地 POC</span><span>首次点击后启奏 · 进度自动保存在本机</span></footer>
+        <footer class="menu-footer"><span>武将人生 · 本地 POC</span><span>首次点击后启奏 · 进度自动保存在本机</span></footer>
       </div>
     </section>
     <div class="app-shell" hidden>
@@ -45,25 +46,25 @@
         <div class="brand">
           <img src="./assets/seal.svg?v=18" alt="伍贰三国印" width="58" height="58" />
           <div>
-            <p class="eyebrow">回合制君主经营 · 战棋 POC</p>
+            <p class="eyebrow">武将人生 · 战棋 POC</p>
             <h1><span>52</span>三国志</h1>
           </div>
         </div>
-        <button class="btn policy-button" id="policies-button" type="button" aria-haspopup="dialog"><span>策</span><span>全局政策<small>改革力 <b id="research-points-label">0</b></small></span></button>
-        <button class="heaven-button" id="heaven-button" type="button" aria-label="查看天意循环" aria-haspopup="dialog"></button>
         <div class="topbar-actions">
+          <button class="btn btn-quiet" id="personal-journal-button" type="button">近日行止</button>
           <button class="btn btn-quiet" id="tasks-button" type="button">任务簿</button>
           <button class="btn btn-quiet" id="wars-button" type="button" aria-haspopup="dialog">战役簿</button>
           <button class="btn btn-quiet" id="factions-button" type="button">天下势力</button>
           <button class="btn btn-quiet" id="reports-button" type="button">军府记事</button>
           <button class="btn btn-quiet" id="help-button" type="button">玩法</button>
-          <button class="btn btn-quiet" id="audio-button" type="button">声音</button>
-          <button class="btn btn-quiet" id="game-menu-button" type="button" aria-haspopup="dialog" aria-expanded="false">菜单</button>
+          <button class="btn btn-quiet" id="game-menu-button" type="button" aria-haspopup="dialog" aria-expanded="false">系统</button>
         </div>
       </header>
 
       <main>
+        <section id="personal-screen" class="screen personal-screen is-hidden" aria-label="武将生活"></section>
         <section id="strategy-screen" class="screen strategy-screen map-reading" aria-label="战略界面">
+          <div class="personal-council-bar"><button id="request-duty-button" class="btn" type="button">请领公务 · 复命</button><button id="council-home-button" class="btn" type="button">返回城中</button></div>
           <div class="turn-ribbon">
             <div class="date-block">
               <span id="season-mark" class="season-mark">春</span>
@@ -76,6 +77,10 @@
               <strong id="command-label">6 / 6</strong>
             </div>
             <button class="btn btn-primary" id="end-turn-button" type="button">结束本月 <span>›</span></button>
+            <div class="council-policy-controls" aria-label="议政厅政策与天意">
+              <button class="btn policy-button" id="policies-button" type="button" aria-haspopup="dialog"><span>策</span><span>全局政策<small>改革力 <b id="research-points-label">0</b></small></span></button>
+              <button class="heaven-button" id="heaven-button" type="button" aria-label="查看天意循环" aria-haspopup="dialog"></button>
+            </div>
           </div>
 
           <div class="strategy-layout">
